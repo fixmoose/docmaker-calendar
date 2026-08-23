@@ -2,7 +2,7 @@
 import clsx from "clsx";
 
 import { format } from "date-fns";
-import { Bell, Check, Mail, Paperclip, Repeat, Smartphone, Trash2 } from "lucide-react";
+import { Bell, Check, Mail, Paperclip, Repeat, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { uploadAttachment } from "@/lib/db";
 import { MAX_FILE_BYTES, formatBytes } from "@/lib/files";
@@ -311,6 +311,12 @@ export function EventDialog({
 /**
  * In-app notifications always arrive; email is opt-in per event, so you can
  * follow the one that matters without being mailed about all of them.
+ *
+ * There used to be a third, disabled chip here promising a mobile app. There
+ * is no mobile app and there does not need to be: pop-ups already reach a
+ * phone through the browser, once notifications are turned on there. That is a
+ * choice about a device rather than about this event, so it is said in a
+ * sentence rather than offered as a switch that would do nothing here.
  */
 function NotifyMeField({ event }: { event: CalendarEvent }) {
   const store = useStore();
@@ -340,16 +346,10 @@ function NotifyMeField({ event }: { event: CalendarEvent }) {
           {subscription.email && <Check size={13} />}
         </button>
 
-        <span
-          title="Needs the mobile app, which does not exist yet"
-          className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-line px-2.5 py-1.5 text-[13px] text-ink-faint"
-        >
-          <Smartphone size={13} /> Mobile
-          <span className="text-[11px]">soon</span>
-        </span>
       </div>
-      <p className="mt-1.5 text-[12px] text-ink-faint">
-        Your own choice — everyone on this event picks their own.
+      <p className="mt-1.5 text-[12px] leading-relaxed text-ink-faint">
+        Your own choice — everyone on this event picks their own. Pop-ups reach
+        every device you have turned notifications on for, your phone included.
       </p>
     </Field>
   );
