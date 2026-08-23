@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: deleted events are kept, not destroyed.
+-- DocMaker Calendar — delta: deleted events are kept, not destroyed.
 -- Safe to run repeatedly.
 --
 -- Deleting now sets deleted_at. The event leaves the calendar immediately but

@@ -12,7 +12,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </div>
       <footer className="pb-8 text-center text-[12px] text-ink-faint">
         <Link href="/" className="hover:text-ink">
-          CouplesCalendar
+          DocMaker Calendar
         </Link>{" "}
         — part of DocMaker Studio
       </footer>

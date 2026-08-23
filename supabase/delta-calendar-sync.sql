@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: subscribing to Google / Outlook calendars.
+-- DocMaker Calendar — delta: subscribing to Google / Outlook calendars.
 -- Safe to run repeatedly.
 
 -- A subscribed feed: the secret iCal URL a provider gives you, plus how often

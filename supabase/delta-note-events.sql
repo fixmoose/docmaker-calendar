@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: a note can be pinned to several events.
+-- DocMaker Calendar — delta: a note can be pinned to several events.
 -- Safe to run repeatedly. Run this whole file.
 --
 -- One note, many events: "bring the folder" belongs to both appointments.

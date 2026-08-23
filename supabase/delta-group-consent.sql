@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: everybody in a group agrees before somebody joins.
+-- DocMaker Calendar — delta: everybody in a group agrees before somebody joins.
 -- Safe to run repeatedly.
 
 -- Joining a group is not a neutral act: from that moment the newcomer sees a

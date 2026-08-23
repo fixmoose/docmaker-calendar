@@ -364,7 +364,7 @@ export function Sidebar({
           className="h-8 w-8"
         />
         <div className="text-[15px] leading-none font-bold tracking-tight text-ink">
-          Couples<span className="text-brand">Calendar</span>
+          DocMaker <span className="text-brand">Calendar</span>
         </div>
       </div>
 

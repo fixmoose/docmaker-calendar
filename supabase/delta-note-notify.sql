@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: pinning a note to an event tells the people on it.
+-- DocMaker Calendar — delta: pinning a note to an event tells the people on it.
 -- Safe to run repeatedly. Run this whole file.
 --
 -- Same treatment as a shared event: the people who can see both the note and

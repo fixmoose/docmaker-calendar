@@ -52,7 +52,7 @@ function buildIcs(event: EventPayload, uid: string, link: string) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//DocMaker Studio//CouplesCalendar//EN",
+    "PRODID:-//DocMaker Studio//DocMaker Calendar//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:REQUEST",
     "BEGIN:VEVENT",
@@ -66,7 +66,7 @@ function buildIcs(event: EventPayload, uid: string, link: string) {
       : `DTEND:${stamp(event.end)}`,
     `SUMMARY:${escapeIcs(event.title)}`,
     event.location ? `LOCATION:${escapeIcs(event.location)}` : "",
-    `DESCRIPTION:${escapeIcs(`${event.notes ? `${event.notes}\n\n` : ""}Open in CouplesCalendar: ${link}`)}`,
+    `DESCRIPTION:${escapeIcs(`${event.notes ? `${event.notes}\n\n` : ""}Open in DocMaker Calendar: ${link}`)}`,
     event.organiserEmail
       ? `ORGANIZER;CN=${escapeIcs(event.organiser ?? "")}:mailto:${event.organiserEmail}`
       : "",
@@ -101,7 +101,7 @@ function html(fromName: string, link: string, message: string, event?: EventPayl
              style="max-width:520px;background:#fff;border-radius:16px;padding:32px">
         <tr><td>
           <h1 style="margin:0 0 8px;font-size:20px;color:#1a1a1e">
-            ${escapeHtml(fromName)} invited you to ${event ? escapeHtml(event.title) : "CouplesCalendar"}
+            ${escapeHtml(fromName)} invited you to ${event ? escapeHtml(event.title) : "DocMaker Calendar"}
           </h1>
           <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#6b6b76">
             Share plans, and keep the rest of your calendar private.
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
             body: { html: html(fromName, invite.link, message, body.event) },
             subject: body.event
               ? `${fromName} invited you to ${body.event.title}`
-              : `${fromName} invited you to CouplesCalendar`,
+              : `${fromName} invited you to DocMaker Calendar`,
             ...(body.event
               ? {
                   attachments: [
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
                 }
               : {}),
             from_email: process.env.UNIONE_FROM_EMAIL ?? "no-reply@docmaker.studio",
-            from_name: process.env.UNIONE_FROM_NAME ?? "CouplesCalendar",
+            from_name: process.env.UNIONE_FROM_NAME ?? "DocMaker Calendar",
             track_links: 0,
             track_read: 0,
           },

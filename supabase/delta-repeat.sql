@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: events that repeat. Safe to run repeatedly.
+-- DocMaker Calendar — delta: events that repeat. Safe to run repeatedly.
 
 -- A repeating event is one row with a rule, not a row per occurrence. The
 -- mortgage on the 1st for the next thirty years is one event; changing the

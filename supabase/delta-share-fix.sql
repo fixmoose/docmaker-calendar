@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: fix 23505 when somebody saves an event that was
+-- DocMaker Calendar — delta: fix 23505 when somebody saves an event that was
 -- shared with them. Safe to run repeatedly.
 
 -- Sharing became editable, but the guest list did not follow. Saving an event

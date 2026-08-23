@@ -43,10 +43,7 @@ export default function LandingPage() {
       <header className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-5 sm:gap-3 sm:px-6 sm:py-6">
         <Image src="/logo-mark.png" alt="" width={34} height={34} className="h-[34px] w-[34px]" />
         <span className="truncate text-[15px] font-bold tracking-tight text-ink sm:text-[16px]">
-          Couples<span className="text-brand">Calendar</span>
-        </span>
-        <span className="hidden text-[12px] text-ink-faint sm:inline">
-          by DocMaker Studio
+          DocMaker <span className="text-brand">Calendar</span>
         </span>
         <nav className="ml-auto flex items-center gap-2">
           <Link
@@ -66,7 +63,7 @@ export default function LandingPage() {
 
       <section className="mx-auto max-w-5xl px-6 pt-10 pb-16 text-center sm:pt-16">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[12px] font-medium text-brand">
-          <Sparkles size={13} /> Welcome to CouplesCalendar
+          <Sparkles size={13} /> Welcome to DocMaker Calendar
         </span>
 
         <h1 className="mx-auto mt-5 max-w-3xl text-[38px] leading-[1.1] font-bold tracking-tight text-balance text-ink sm:text-[52px]">
@@ -137,7 +134,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-6 py-6 text-[12px] text-ink-faint sm:flex-row">
-          <span>CouplesCalendar — part of DocMaker Studio</span>
+          <span>Part of DocMaker Studio</span>
           <span>© {new Date().getFullYear()} DocMaker Studio</span>
         </div>
       </footer>

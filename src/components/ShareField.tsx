@@ -117,7 +117,7 @@ export function ShareField({
           {inviteEmails.map((email) => (
             <span
               key={email}
-              title="Not on CouplesCalendar yet — they will be emailed an invitation"
+              title="Not on DocMaker Calendar yet — they will be emailed an invitation"
               className="flex items-center gap-1.5 rounded-full border border-dashed border-brand/50 bg-brand-soft py-1 pr-1.5 pl-2.5 text-[13px] text-brand"
             >
               <Mail size={13} />

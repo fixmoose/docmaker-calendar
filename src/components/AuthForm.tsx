@@ -143,7 +143,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <p className="mt-1.5 text-[14px] text-ink-muted">
           {isSignup
             ? "Share the plans that matter, keep the rest private."
-            : "Log in to CouplesCalendar."}
+            : "Log in to DocMaker Calendar."}
         </p>
       </div>
 
@@ -158,7 +158,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       </button>
 
       <p className="mt-2 text-center text-[11px] leading-relaxed text-ink-faint">
-        Google will ask you to continue to CouplesCalendar. We only ever see
+        Google will ask you to continue to DocMaker Calendar. We only ever see
         your name, email and picture.
       </p>
 

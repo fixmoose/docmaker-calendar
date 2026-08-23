@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: live notifications + per-event delivery choice.
+-- DocMaker Calendar — delta: live notifications + per-event delivery choice.
 -- Safe to run repeatedly.
 
 -- How each person wants to hear about one event. In-app is always on; email is

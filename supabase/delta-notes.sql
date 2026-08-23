@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: shared notes. Safe to run repeatedly.
+-- DocMaker Calendar — delta: shared notes. Safe to run repeatedly.
 --
 -- A note belongs either to one person or to a group, exactly as a calendar
 -- does: group_id null means private, group_id set means everyone in that group

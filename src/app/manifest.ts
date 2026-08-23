@@ -7,7 +7,7 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "CouplesCalendar",
+    name: "DocMaker Calendar",
     short_name: "Calendar",
     description:
       "Share the plans that matter, keep the rest private. Part of DocMaker Studio.",

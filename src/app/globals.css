@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Brand — taken from the CouplesCalendar mark */
+  /* Brand — taken from the DocMaker Calendar mark */
   --cc-brand: #dc6b15;
   --cc-brand-strong: #c05a0c;
   --cc-brand-soft: #fdf1e7;

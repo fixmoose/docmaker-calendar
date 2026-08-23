@@ -1,4 +1,4 @@
--- CouplesCalendar — database schema (Supabase / Postgres)
+-- DocMaker Calendar — database schema (Supabase / Postgres)
 --
 -- Every object uses the CC_ prefix. Postgres folds unquoted identifiers to
 -- lower case, so these are created as cc_* and you can still write CC_events
@@ -25,7 +25,7 @@ create extension if not exists citext;
 
 -- An earlier version put a trigger on auth.users. That table is shared with
 -- every other app on this project, so a signup for any of them would create
--- CouplesCalendar rows. cc_bootstrap_me() replaced it; remove the trigger.
+-- DocMaker Calendar rows. cc_bootstrap_me() replaced it; remove the trigger.
 drop trigger if exists cc_on_auth_user_created on auth.users;
 drop function if exists cc_handle_new_user();
 
@@ -331,7 +331,7 @@ create trigger cc_events_touch
 --
 -- Deliberately NOT a trigger on auth.users: this Supabase project is shared
 -- with several other apps, and auth.users is common to all of them. A trigger
--- there would create CouplesCalendar rows for people signing up to a different
+-- there would create DocMaker Calendar rows for people signing up to a different
 -- app entirely. Doing it on demand keeps this app's footprint inside CC_.
 create or replace function cc_bootstrap_me()
 returns void

@@ -32,4 +32,4 @@ export function publicUrl() {
   return SITE_URL;
 }
 
-export const SITE_NAME = "CouplesCalendar";
+export const SITE_NAME = "DocMaker Calendar";

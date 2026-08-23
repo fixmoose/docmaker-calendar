@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: a note can be pinned to an event. Safe to re-run.
+-- DocMaker Calendar — delta: a note can be pinned to an event. Safe to re-run.
 --
 -- The link is one column: a note belongs to at most one event, and the event
 -- shows the notes pinned to it. Who may see a note does not change — that is

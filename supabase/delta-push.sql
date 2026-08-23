@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: browser push subscriptions. Safe to run repeatedly.
+-- DocMaker Calendar — delta: browser push subscriptions. Safe to run repeatedly.
 
 -- One row per browser that has agreed to be notified. Deleting a row is how a
 -- device unsubscribes, and the sender deletes any endpoint the push service

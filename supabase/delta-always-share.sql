@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: always share with, editable shares, and a record of
+-- DocMaker Calendar — delta: always share with, editable shares, and a record of
 -- who changed what. Safe to run repeatedly.
 
 -- ------------------------------------------------------------------ --

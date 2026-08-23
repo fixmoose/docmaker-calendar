@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: personal reminders + a notification inbox.
+-- DocMaker Calendar — delta: personal reminders + a notification inbox.
 -- Safe to run repeatedly.
 
 -- A reminder now belongs either to one person or to everybody:

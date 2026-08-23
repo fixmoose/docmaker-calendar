@@ -1,4 +1,4 @@
--- CouplesCalendar — delta for per-event invitations.
+-- DocMaker Calendar — delta for per-event invitations.
 -- Safe to run repeatedly. (Re-running the whole schema.sql works too.)
 
 alter table cc_invitations

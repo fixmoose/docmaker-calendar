@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# CouplesCalendar
+# DocMaker Calendar
 
 Shared calendar app. Next.js 16 App Router, React 19, Tailwind 4, TypeScript.
 

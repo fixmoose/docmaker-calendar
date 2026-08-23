@@ -1,4 +1,4 @@
-# CouplesCalendar
+# DocMaker Calendar
 
 A shared calendar for the people you plan life with: your own calendars, group
 calendars, and the ability to push a single event onto someone else's calendar
@@ -174,7 +174,7 @@ creates is therefore `CC_` prefixed, and the schema touches nothing else.
 That sharing extends to authentication: `auth.users` and the provider settings
 (including the Google client) are common to every app on the project. So this
 schema adds **no trigger on `auth.users`** — a signup for another app would
-otherwise create CouplesCalendar rows. Instead the client calls
+otherwise create DocMaker Calendar rows. Instead the client calls
 `cc_bootstrap_me()` on load, which creates this app's profile and starter
 calendar for whoever is signed in, and does nothing if they already exist.
 One Google OAuth client covers every app on the project; apps are separated by
@@ -301,7 +301,7 @@ calendar scope), which is a separate piece of work.
 
 ## Domain
 
-CouplesCalendar is part of **DocMaker Studio** and lives at
+DocMaker Calendar is part of **DocMaker Studio** and lives at
 **calendar.docmaker.studio**.
 
 `docmaker.studio` is registered with DNS at GoDaddy (`ns11/ns12.domaincontrol.com`)
@@ -337,7 +337,7 @@ records UniOne asks for have nowhere to live, and verification can never pass
 there. GoDaddy is not the problem; no DNS provider can do it.
 
 The sending domain does not have to match the site domain. Recipients happily
-see `CouplesCalendar <no-reply@docmaker.studio>` on mail about a calendar at
+see `DocMaker Calendar <no-reply@docmaker.studio>` on mail about a calendar at
 `calendar.docmaker.studio`. So verify **`docmaker.studio`** at UniOne (or a
 dedicated `mail.docmaker.studio`, which has no CNAME either) and point
 `UNIONE_FROM_EMAIL` at it.

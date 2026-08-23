@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: reminders. Safe to run repeatedly.
+-- DocMaker Calendar — delta: reminders. Safe to run repeatedly.
 
 -- Reminders belong to the event, not to the person reading it: whoever creates
 -- the event decides, and everyone the event reaches is reminded the same way.

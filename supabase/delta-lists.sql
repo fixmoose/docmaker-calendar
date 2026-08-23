@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: a list attached to an event. Safe to run repeatedly.
+-- DocMaker Calendar — delta: a list attached to an event. Safe to run repeatedly.
 
 -- What kind of list this event carries, which decides the icon and the wording
 -- ("3 still to buy" reads better than "3 still to do" for a shopping trip).

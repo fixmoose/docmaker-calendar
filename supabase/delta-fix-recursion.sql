@@ -1,4 +1,4 @@
--- CouplesCalendar — FIX for 42P17, infinite recursion on cc_events.
+-- DocMaker Calendar — FIX for 42P17, infinite recursion on cc_events.
 -- Safe to run repeatedly. Run this whole file.
 --
 -- The read policy on cc_events asked cc_event_shares whether the event was

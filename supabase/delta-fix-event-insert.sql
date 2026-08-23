@@ -1,4 +1,4 @@
--- CouplesCalendar — THE FIX for "event could not be created" (42501).
+-- DocMaker Calendar — THE FIX for "event could not be created" (42501).
 -- Safe to run repeatedly. Run this whole file.
 --
 -- cc_events_read called cc_event_access(id, auth.uid()), which looks the row up

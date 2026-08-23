@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: a reminder is answered once, not once per device.
+-- DocMaker Calendar — delta: a reminder is answered once, not once per device.
 -- Safe to run repeatedly.
 
 -- Acknowledging a reminder is recorded centrally, so confirming it on a phone

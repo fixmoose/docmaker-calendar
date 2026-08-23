@@ -1,5 +1,5 @@
 /*
- * CouplesCalendar service worker.
+ * DocMaker Calendar service worker.
  *
  * Receives pushes and shows them, which is what makes a notification arrive
  * when the calendar is closed — a page can only be told things while it is
@@ -15,7 +15,7 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: "CouplesCalendar", body: event.data ? event.data.text() : "" };
+    payload = { title: "DocMaker Calendar", body: event.data ? event.data.text() : "" };
   }
 
   const options = {
@@ -38,7 +38,7 @@ self.addEventListener("push", (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(payload.title || "CouplesCalendar", options));
+  event.waitUntil(self.registration.showNotification(payload.title || "DocMaker Calendar", options));
 });
 
 self.addEventListener("notificationclick", (event) => {

@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: policy visibility + rebuild the cc_events policies.
+-- DocMaker Calendar — delta: policy visibility + rebuild the cc_events policies.
 -- Safe to run repeatedly. Run this whole file.
 
 -- 1. A read-only report of what row level security actually looks like, so the

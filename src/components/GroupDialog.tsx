@@ -30,7 +30,7 @@ export function GroupDialog({
         : [...current, id],
     );
 
-  /** People who are not on CouplesCalendar yet get an emailed invitation. */
+  /** People who are not on DocMaker Calendar yet get an emailed invitation. */
   const invite = async () => {
     const value = email.trim();
     if (!value.includes("@")) return;

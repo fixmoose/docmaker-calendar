@@ -10,12 +10,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "CouplesCalendar",
-    template: "%s · CouplesCalendar",
+    default: "DocMaker Calendar",
+    template: "%s · DocMaker Calendar",
   },
   description:
     "A shared calendar for the people you plan life with — personal, group and per-event sharing.",
-  applicationName: "CouplesCalendar",
+  applicationName: "DocMaker Calendar",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "CouplesCalendar",
+    siteName: "DocMaker Calendar",
     url: SITE_URL,
-    title: "CouplesCalendar",
+    title: "DocMaker Calendar",
     description:
       "Share the plans that matter, keep the rest private. Part of DocMaker Studio.",
   },

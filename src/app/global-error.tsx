@@ -23,7 +23,7 @@ export default function GlobalError({
         }}
       >
         <div style={{ maxWidth: 420, padding: 28, textAlign: "center" }}>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>CouplesCalendar stopped</h1>
+          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>DocMaker Calendar stopped</h1>
           <p style={{ color: "#6b6b76", fontSize: 14, lineHeight: 1.6 }}>{error.message}</p>
           <button
             onClick={reset}

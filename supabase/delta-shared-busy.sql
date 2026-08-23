@@ -1,4 +1,4 @@
--- CouplesCalendar — delta: an event shared with you blocks your time.
+-- DocMaker Calendar — delta: an event shared with you blocks your time.
 -- Safe to run repeatedly. Run this whole file.
 --
 -- Until now a shared event appeared on your calendar but lived on the other

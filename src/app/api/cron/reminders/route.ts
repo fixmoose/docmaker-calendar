@@ -200,7 +200,7 @@ export async function GET(request: Request) {
               template_engine: "simple",
               subject: `Reminder: ${row.event.title} — ${when}`,
               from_email: process.env.UNIONE_FROM_EMAIL ?? "no-reply@docmaker.studio",
-              from_name: process.env.UNIONE_FROM_NAME ?? "CouplesCalendar",
+              from_name: process.env.UNIONE_FROM_NAME ?? "DocMaker Calendar",
               body: {
                 html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px">
                   <h2 style="margin:0 0 6px;font-size:19px;color:#1a1a1e">${escapeHtml(row.event.title)}</h2>
@@ -508,7 +508,7 @@ async function flushNotificationEmails(
             template_engine: "simple",
             subject: note.title,
             from_email: process.env.UNIONE_FROM_EMAIL ?? "no-reply@docmaker.studio",
-            from_name: process.env.UNIONE_FROM_NAME ?? "CouplesCalendar",
+            from_name: process.env.UNIONE_FROM_NAME ?? "DocMaker Calendar",
             body: {
               html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px">
                 <h2 style="margin:0 0 6px;font-size:18px;color:#1a1a1e">${escapeHtml(note.title)}</h2>

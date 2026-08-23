@@ -1,5 +1,5 @@
 /**
- * Domain model for CouplesCalendar.
+ * Domain model for DocMaker Calendar.
  *
  * These types deliberately mirror the shape we will store in Supabase
  * (tables prefixed `CC_`), so moving from the local store to the database
@@ -258,7 +258,7 @@ export interface Feed {
   eventCount: number;
 }
 
-/** An emailed invitation to join CouplesCalendar. */
+/** An emailed invitation to join DocMaker Calendar. */
 /** Somebody a group has been asked to let in, and where that has got to. */
 export interface JoinRequest {
   id: string;
