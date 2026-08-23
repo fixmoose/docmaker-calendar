@@ -119,6 +119,16 @@ export function CalendarApp() {
    * The walkthrough, first time on a phone only. Read lazily rather than in an
    * effect so it is decided before the first paint, and never on the server.
    */
+  /**
+   * Where a phone has been panned to. Only the title reads it: moving the date
+   * itself would rebuild the strip under the finger doing the moving.
+   *
+   * Stamped with the date it was panned from, so arriving somewhere new by any
+   * other route drops it without an effect having to notice.
+   */
+  const [panned, setPanned] = useState<{ from: number; day: Date } | null>(null);
+  const shownDate = panned?.from === date.getTime() ? panned.day : date;
+
   const [tourDone, setTourDone] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -770,7 +780,7 @@ export function CalendarApp() {
         )}
 
         <TopBar
-          date={date}
+          date={shownDate}
           view={view}
           query={query}
           onQuery={setQuery}
@@ -798,10 +808,17 @@ export function CalendarApp() {
           <TimeGridView
             /*
              * Seven columns on a phone leaves about 45px each — every title
-             * truncates to a letter and an ellipsis. Three days is what the
-             * screen can actually show, and the arrows move three at a time.
+             * truncates to a letter and an ellipsis. Three are shown at a
+             * time; the strip carries three weeks of them so the days can be
+             * panned through rather than paged.
              */
-            days={isMobile ? [date, addDays(date, 1), addDays(date, 2)] : weekDays(date)}
+            days={
+              isMobile
+                ? Array.from({ length: 21 }, (_, i) => addDays(date, i - 3))
+                : weekDays(date)
+            }
+            anchorDay={date}
+            onVisibleDayChange={(day) => setPanned({ from: date.getTime(), day })}
             events={events}
             handlers={handlers}
           />

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { addDays, addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
+import { addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Paperclip } from "lucide-react";
 import { colorVar } from "@/lib/colors";
@@ -233,16 +233,36 @@ function BusyBlock({
 
 export function TimeGridView({
   days,
+  anchorDay,
+  onVisibleDayChange,
   events,
   handlers,
 }: {
   days: Date[];
+  /** The day the app is on: where a strip opens, and where Today returns to. */
+  anchorDay?: Date;
+  /**
+   * Told which day has come to rest on the left, so the title can follow a
+   * finger across the strip without the strip itself being rebuilt underneath
+   * it — rebuilding mid-pan is what a jump feels like.
+   */
+  onVisibleDayChange?: (day: Date) => void;
   events: CalendarEvent[];
   handlers: ViewHandlers;
 }) {
   const { rescheduleEvent, canEditEvent } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  /*
+   * On a phone the days are a strip wider than the screen, panned with the
+   * browser's own horizontal scrolling rather than by watching for flicks: a
+   * jump of a whole page on release is not what a finger asked for. Three days
+   * are shown at a time and the rest is simply off the edge.
+   */
+  const strip = isMobile && days.length > 3;
+  const column = strip ? "var(--cc-col)" : "minmax(0,1fr)";
+  const template = `${GUTTER} repeat(${days.length}, ${column})`;
 
   /*
    * A finger is not a mouse. On a touch screen the same gesture that would be
@@ -253,8 +273,8 @@ export function TimeGridView({
    * Across: the days move. Down: the hours scroll. Twice in the same place:
    * make something there.
    */
-  const swipe = useRef<Tap | null>(null);
   const lastTap = useRef<Tap | null>(null);
+  const panRef = useRef<HTMLDivElement>(null);
 
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -273,9 +293,9 @@ export function TimeGridView({
 
   // Open on the working day rather than at midnight.
   useLayoutEffect(() => {
-    const el = scrollRef.current;
+    const el = strip ? panRef.current : scrollRef.current;
     if (el) el.scrollTop = 7 * HOUR_H - 8;
-  }, []);
+  }, [strip]);
 
   const banners = useMemo(
     () => layoutWeek(events.filter(isBanner), days),
@@ -383,20 +403,72 @@ export function TimeGridView({
   const lane = (dayIndex: number) =>
     columns[dayIndex].theirs.length > 0 ? BUSY_LANE_START : 1;
 
+  /*
+   * The strip starts showing the day the app is on, which is a few columns in
+   * so there is somewhere to pan back to. Set without animation: this is where
+   * the view begins, not a journey to it.
+   */
+  /*
+   * Depends on where the strip starts and how long it is, not on the array
+   * itself — a fresh array arrives on every render, so depending on it reset
+   * the scroll position continuously and the days could not be moved at all.
+   */
+  const stripStart = days[0]?.getTime();
+  const stripLength = days.length;
+  useLayoutEffect(() => {
+    const el = panRef.current;
+    if (!el || !strip || stripStart === undefined) return;
+    const index = days.findIndex((d) => isSameDay(d, anchorDay ?? days[0]));
+    if (index <= 0) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) * (index / (stripLength - 3));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripStart, stripLength, strip]);
+
+  /** Which day has come to rest on the left, so the title can follow along. */
+  const onPan = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!onVisibleDayChange || days.length < 2) return;
+    const el = e.currentTarget;
+    const span = el.scrollWidth - el.clientWidth;
+    if (span <= 0) return;
+    const index = Math.round((el.scrollLeft / span) * (days.length - 3));
+    const day = days[Math.min(days.length - 1, Math.max(0, index))];
+    if (day) onVisibleDayChange(day);
+  };
+
   const selectedSlot = handlers.selectedSlot;
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const nowMinutes = minutesFromMidnight(now);
   const single = days.length === 1;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-surface">
+    <div
+      ref={panRef}
+      onScroll={strip ? onPan : undefined}
+      className={clsx(
+        "flex min-h-0 flex-1 flex-col bg-surface",
+        // The browser pans it: finger-tracking, momentum and settling for
+        // free, and none of it written here. Both axes belong to this one
+        // element, so the hour gutter has something to pin itself to.
+        strip && "cc-scroll snap-x snap-mandatory overflow-auto",
+      )}
+      style={
+        strip
+          ? ({ "--cc-col": `calc((100vw - ${GUTTER}) / 3)` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {/* Day headers + all-day strip */}
-      <div className="shrink-0 border-b border-line">
+      <div
+        className={clsx(
+          "shrink-0 border-b border-line",
+          strip && "sticky top-0 z-30 w-max bg-surface",
+        )}
+      >
         <div
           className="grid"
-          style={{ gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0,1fr))` }}
+          style={{ gridTemplateColumns: template }}
         >
-          <div />
+          <div className={clsx(strip && "sticky left-0 z-20 bg-surface")} />
           {days.map((day) => (
             <button
               key={day.toISOString()}
@@ -407,7 +479,10 @@ export function TimeGridView({
                * Laid out in a row, "MON" and "17" collided with the next day's
                * label as soon as the column dropped below about 60px.
                */
-              className="flex flex-col items-center justify-center gap-0.5 border-l border-line py-2 transition hover:bg-surface-2 sm:flex-row sm:gap-1.5"
+              className={clsx(
+                "flex flex-col items-center justify-center gap-0.5 border-l border-line py-2 transition hover:bg-surface-2 sm:flex-row sm:gap-1.5",
+                strip && "snap-start",
+              )}
             >
               <span
                 className={clsx(
@@ -431,9 +506,14 @@ export function TimeGridView({
 
         <div
           className="grid"
-          style={{ gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0,1fr))` }}
+          style={{ gridTemplateColumns: template }}
         >
-          <div className="flex items-start justify-end pt-1.5 pr-2 text-[10px] font-medium tracking-wide text-ink-faint uppercase">
+          <div
+            className={clsx(
+              "flex items-start justify-end pt-1.5 pr-2 text-[10px] font-medium tracking-wide text-ink-faint uppercase",
+              strip && "sticky left-0 z-20 bg-surface",
+            )}
+          >
             {/* "All day" wraps to two lines in the narrow phone gutter. */}
             <span className="hidden sm:inline">All day</span>
             <span className="sm:hidden">All</span>
@@ -447,7 +527,7 @@ export function TimeGridView({
           >
             <div
               className="absolute inset-0 grid"
-              style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${days.length}, ${column})` }}
             >
               {days.map((day) => (
                 <div
@@ -501,48 +581,19 @@ export function TimeGridView({
         </div>
       </div>
 
-      {/*
-       * Scrollable time grid. Up and down is the browser's own scrolling, left
-       * to right is ours: as many days as are on screen, so the gesture moves
-       * by exactly what you can see.
-       */}
       <div
         ref={scrollRef}
-        className="cc-scroll min-h-0 flex-1 touch-pan-y overflow-y-auto"
-        onTouchStart={(e) => {
-          if (e.touches.length !== 1) return;
-          swipe.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            at: performance.now(),
-          };
-        }}
-        onTouchEnd={(e) => {
-          const from = swipe.current;
-          swipe.current = null;
-          if (!from || !e.changedTouches.length) return;
-
-          const dx = e.changedTouches[0].clientX - from.x;
-          const dy = e.changedTouches[0].clientY - from.y;
-
-          // Deliberately sideways, and quick enough to be a flick rather than
-          // a thumb resting on the screen while reading.
-          if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-          if (performance.now() - from.at > 700) return;
-
-          const step = days.length * (dx < 0 ? 1 : -1);
-          handlers.onNavigate(addDays(days[0], step), single ? "day" : "week");
-        }}
+        className={clsx(strip ? "w-max" : "cc-scroll min-h-0 flex-1 overflow-y-auto")}
       >
         <div
           className="relative grid"
           style={{
-            gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0,1fr))`,
+            gridTemplateColumns: template,
             height: DAY_H,
           }}
         >
           {/* Hour labels */}
-          <div className="relative">
+          <div className={clsx("relative", strip && "sticky left-0 z-20 bg-surface")}>
             {hours.map((h) => (
               <div
                 key={h}
@@ -565,7 +616,7 @@ export function TimeGridView({
             className="relative grid select-none"
             style={{
               gridColumn: "2 / -1",
-              gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`,
+              gridTemplateColumns: `repeat(${days.length}, ${column})`,
             }}
           >
             {hover !== null && !drag && (
