@@ -153,7 +153,7 @@ function PersonRow({
       <Avatar
         person={person}
         size={18}
-        status={store.presenceOf(personId)}
+        status={presence}
         className={clsx("transition", !busyShown && "opacity-40 grayscale")}
       />
       <button
@@ -163,17 +163,21 @@ function PersonRow({
         className="min-w-0 flex-1 truncate text-left text-[13px] text-ink"
       >
         {person.name}
-        {/*
-         * Said in words as well as in colour. Whether somebody is there to
-         * answer you is the useful half of presence, and a six-pixel dot is
-         * not something anybody notices while looking at a calendar.
-         */}
-        {presence === "active" && (
-          <span className="ml-1.5 text-[11px] font-medium text-[#3f9142]">here now</span>
-        )}
-        {presence === "away" && (
-          <span className="ml-1.5 text-[11px] text-ink-faint">away</span>
-        )}
+        <span
+          title={
+            presence === "active"
+              ? `${person.name} is in the calendar now`
+              : presence === "away"
+                ? `${person.name} has it open but has wandered off`
+                : `${person.name} does not have the calendar open`
+          }
+          className={clsx(
+            "ml-1.5 inline-block h-2 w-2 shrink-0 rounded-full align-middle",
+            presence === "active" && "bg-[#5cba62]",
+            presence === "away" && "bg-[#e8912a]",
+            !presence && "border border-line-strong bg-transparent",
+          )}
+        />
       </button>
       {/* what they sent you, and what you sent them */}
       <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-faint tabular-nums">

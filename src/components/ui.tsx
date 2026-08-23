@@ -30,19 +30,32 @@ export function Avatar({
   person: Person;
   size?: number;
   className?: string;
-  /** Green while they are using the calendar, amber when they have wandered off. */
-  status?: "active" | "away";
+  /**
+   * Green while they are using the calendar, amber when they have wandered
+   * off, hollow when the calendar is closed. Pass "offline" rather than
+   * leaving it out: no dot at all reads as "we do not do this", which is a
+   * different claim from "they are not there".
+   */
+  status?: "active" | "away" | "offline";
 }) {
   if (status) {
     return (
       <span className="relative inline-flex shrink-0">
         <Avatar person={person} size={size} className={className} />
         <span
-          title={status === "active" ? `${person.name} is in the calendar` : `${person.name} is away`}
+          title={
+            status === "active"
+              ? `${person.name} is in the calendar`
+              : status === "away"
+                ? `${person.name} has the calendar open but is away`
+                : `${person.name} does not have the calendar open`
+          }
           style={{ width: Math.max(7, size * 0.3), height: Math.max(7, size * 0.3) }}
           className={clsx(
             "absolute -right-px -bottom-px rounded-full ring-2 ring-[var(--surface)]",
-            status === "active" ? "bg-[#3f9142]" : "bg-[#dc9a15]",
+            status === "active" && "bg-[#3f9142]",
+            status === "away" && "bg-[#dc9a15]",
+            status === "offline" && "border border-line-strong bg-[var(--surface-2)]",
           )}
         />
       </span>
