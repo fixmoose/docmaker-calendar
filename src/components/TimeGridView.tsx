@@ -29,7 +29,12 @@ import { Avatar } from "./ui";
 import type { ViewHandlers } from "./view-types";
 
 /** Width of the "someone else is busy" lane, as a fraction of a day column. */
-const BUSY_LANE = 0.24;
+/*
+ * How much of a day column somebody else's busy time takes. Wide enough to be
+ * clicked on a narrow screen — a quarter of a phone column was about eleven
+ * pixels, which is a target nobody can hit deliberately.
+ */
+const BUSY_LANE = 0.32;
 const BUSY_LANE_START = 1 - BUSY_LANE;
 
 const HOUR_H = 48;
@@ -196,12 +201,18 @@ function Block({
   );
 }
 
-/** Someone else's time: no title, no interaction beyond "hide their busy times". */
+/**
+ * Someone else's time. It holds no details, but it is a real thing on the
+ * screen: clicking it opens who and when, and a way to ask about it. The click
+ * stops here rather than falling through to the hour underneath, which would
+ * otherwise pick a slot the moment you tried to touch the block.
+ */
 function BusyBlock({
   event,
   style,
   height,
   narrow,
+  onOpen,
   onMenu,
 }: {
   event: CalendarEvent;
@@ -209,6 +220,7 @@ function BusyBlock({
   /** Rendered height in px — short blocks show the hatch alone. */
   height: number;
   narrow: boolean;
+  onOpen: (e: React.MouseEvent) => void;
   onMenu: (e: React.MouseEvent) => void;
 }) {
   const { others, label } = useEventPeople(event);
@@ -216,10 +228,21 @@ function BusyBlock({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={style}
-      title={label}
+      title={`${label} — click to ask about it`}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen(e as unknown as React.MouseEvent);
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
       onContextMenu={onMenu}
-      className="cc-busy absolute z-0 flex flex-col items-center justify-center gap-1 overflow-hidden rounded-[6px] border border-dashed px-1 py-0.5 text-[11px] select-none"
+      className="cc-busy absolute z-10 flex cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-[6px] border border-dashed px-1 py-0.5 text-[11px] transition select-none hover:border-solid hover:brightness-[0.97]"
     >
       {person && height >= 26 && <Avatar person={person} size={16} />}
       {!narrow && height >= 44 && (
@@ -765,6 +788,7 @@ export function TimeGridView({
                     event={p.event}
                     narrow={!single}
                     height={Math.max(16, p.height * DAY_H - 2)}
+                    onOpen={() => handlers.onOpenEvent(p.event)}
                     onMenu={(e) => handlers.onEventMenu(e, p.event)}
                     style={{
                       top: p.top * DAY_H,

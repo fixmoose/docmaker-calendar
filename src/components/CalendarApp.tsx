@@ -61,6 +61,7 @@ import { SubscribeDialog } from "./SubscribeDialog";
 import { MonthView } from "./MonthView";
 import { Sidebar } from "./Sidebar";
 import { TimeGridView } from "./TimeGridView";
+import { BusyDialog } from "./BusyDialog";
 import { PhoneTour, TOUR_SEEN_KEY } from "./PhoneTour";
 import { TopBar } from "./TopBar";
 import { Avatar, Toast, UndoBar } from "./ui";
@@ -126,6 +127,7 @@ export function CalendarApp() {
    * Stamped with the date it was panned from, so arriving somewhere new by any
    * other route drops it without an effect having to notice.
    */
+  const [busy, setBusy] = useState<CalendarEvent | null>(null);
   const [panned, setPanned] = useState<{ from: number; day: Date } | null>(null);
   const shownDate = panned?.from === date.getTime() ? panned.day : date;
 
@@ -190,7 +192,15 @@ export function CalendarApp() {
   );
 
   const editEvent = useCallback((event: CalendarEvent) => {
-    if (event.masked) return; // nothing to open — we hold no details
+    /*
+     * A busy block holds no details, but it does hold a person and a time,
+     * which is enough to ask about. Opening nothing at all was the calendar
+     * refusing to acknowledge something plainly on the screen.
+     */
+    if (event.masked) {
+      setBusy(event);
+      return;
+    }
     setSelectedId(event.id);
     const series = event.seriesId ? store.eventById(event.seriesId) : undefined;
     setDialog({
@@ -886,6 +896,8 @@ export function CalendarApp() {
           }}
         />
       )}
+
+      {busy && <BusyDialog event={busy} onClose={() => setBusy(null)} />}
 
       <ReminderWatcher />
 
