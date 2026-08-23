@@ -1,10 +1,11 @@
 "use client";
 
 import clsx from "clsx";
-import { addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
+import { addDays, addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Paperclip } from "lucide-react";
 import { colorVar } from "@/lib/colors";
+import { useIsMobile } from "@/lib/media";
 import { useIsSpent } from "@/lib/past";
 import { dragHasFiles, filesFromDrag } from "@/lib/files";
 import {
@@ -43,6 +44,33 @@ const MENU_SNAP = 30;
 const READOUT_SNAP = 5;
 /* Narrow on a phone: every pixel here is taken from the day columns. */
 const GUTTER = "clamp(44px, 12vw, 64px)";
+
+/**
+ * A finger, rather than a mouse. Dragging with one is how you scroll, so the
+ * press-and-drag gestures here — painting a new event, moving one, resizing
+ * one — are for pointers that can hover and press separately.
+ */
+const isTouch = (e: { pointerType?: string }) => e.pointerType === "touch";
+
+interface Tap {
+  x: number;
+  y: number;
+  at: number;
+}
+
+/**
+ * True when this tap is the second of a pair, in about the same spot. Lives
+ * out here because it reads the clock, which is not allowed inside a component
+ * — it is only ever called from a handler, long after rendering is done.
+ */
+function isSecondTap(previous: React.RefObject<Tap | null>, x: number, y: number) {
+  const before = previous.current;
+  const now = performance.now();
+  previous.current = { x, y, at: now };
+  return Boolean(
+    before && now - before.at < 400 && Math.hypot(x - before.x, y - before.y) < 32,
+  );
+}
 
 type Drag =
   | { mode: "create"; dayIndex: number; anchor: number; from: number; to: number }
@@ -94,7 +122,7 @@ function Block({
   return (
     <div
       style={{ ...style, ...colorVar(color) }}
-      onPointerDown={editable ? onMove : undefined}
+      onPointerDown={editable ? (e) => !isTouch(e) && onMove(e) : undefined}
       onClick={onOpen}
       onContextMenu={onMenu}
       {...dropHandlers}
@@ -158,7 +186,7 @@ function Block({
 
       {editable && (
         <div
-          onPointerDown={onResize}
+          onPointerDown={(e) => !isTouch(e) && onResize(e)}
           className="absolute inset-x-0 -bottom-px h-2 cursor-ns-resize opacity-0 group-hover:opacity-100"
         >
           <div className="mx-auto mt-1 h-[3px] w-6 rounded-full bg-[var(--c)]" />
@@ -214,6 +242,21 @@ export function TimeGridView({
 }) {
   const { rescheduleEvent, canEditEvent } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+
+  /*
+   * A finger is not a mouse. On a touch screen the same gesture that would be
+   * a click-and-drag here is how you scroll, so pressing a slot must not start
+   * painting an event and a single tap must not decide anything — otherwise
+   * moving through the day leaves selections behind it.
+   *
+   * Across: the days move. Down: the hours scroll. Twice in the same place:
+   * make something there.
+   */
+  const swipe = useRef<Tap | null>(null);
+  const lastTap = useRef<Tap | null>(null);
+
+
   const gridRef = useRef<HTMLDivElement>(null);
   const justDragged = useRef(false);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -458,8 +501,39 @@ export function TimeGridView({
         </div>
       </div>
 
-      {/* Scrollable time grid */}
-      <div ref={scrollRef} className="cc-scroll min-h-0 flex-1 overflow-y-auto">
+      {/*
+       * Scrollable time grid. Up and down is the browser's own scrolling, left
+       * to right is ours: as many days as are on screen, so the gesture moves
+       * by exactly what you can see.
+       */}
+      <div
+        ref={scrollRef}
+        className="cc-scroll min-h-0 flex-1 touch-pan-y overflow-y-auto"
+        onTouchStart={(e) => {
+          if (e.touches.length !== 1) return;
+          swipe.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            at: performance.now(),
+          };
+        }}
+        onTouchEnd={(e) => {
+          const from = swipe.current;
+          swipe.current = null;
+          if (!from || !e.changedTouches.length) return;
+
+          const dx = e.changedTouches[0].clientX - from.x;
+          const dy = e.changedTouches[0].clientY - from.y;
+
+          // Deliberately sideways, and quick enough to be a flick rather than
+          // a thumb resting on the screen while reading.
+          if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          if (performance.now() - from.at > 700) return;
+
+          const step = days.length * (dx < 0 ? 1 : -1);
+          handlers.onNavigate(addDays(days[0], step), single ? "day" : "week");
+        }}
+      >
         <div
           className="relative grid"
           style={{
@@ -514,6 +588,15 @@ export function TimeGridView({
                   isToday(day) && !single && "bg-brand-soft/25",
                 )}
                 onPointerDown={(e) => {
+                  // A finger here is scrolling until it proves otherwise.
+                  if (isTouch(e)) {
+                    if (isSecondTap(lastTap, e.clientX, e.clientY)) {
+                      const { minutes } = pointToTime(e.clientX, e.clientY);
+                      const from = hourFloor(minutes);
+                      handlers.onCreate(at(dayIndex, from), at(dayIndex, from + HOUR), false);
+                    }
+                    return;
+                  }
                   const { minutes } = pointToTime(e.clientX, e.clientY);
                   const anchor = hourFloor(minutes);
                   beginDrag(e, {
@@ -525,7 +608,9 @@ export function TimeGridView({
                   });
                 }}
                 onClick={(e) => {
-                  if (justDragged.current) return;
+                  if (justDragged.current || e.detail === 0) return;
+                  // Handled on the second tap instead — see above.
+                  if (isMobile) return;
                   const { minutes } = pointToTime(e.clientX, e.clientY);
                   const from = Math.floor(minutes / 60) * 60;
                   handlers.onSelectSlot(at(dayIndex, from), at(dayIndex, from + 60), false);
