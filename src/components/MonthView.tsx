@@ -9,6 +9,7 @@ import {
   isSameDay,
   isSameMonth,
   isToday,
+  endOfDay as endOfDayOf,
   startOfDay,
 } from "date-fns";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -141,8 +142,22 @@ export function MonthView({
                   <div
                     key={day.toISOString()}
                     data-day={day.toISOString()}
-                    // Clicking a day in the month opens it; right-click adds.
-                    onClick={() => handlers.onNavigate(day, "day")}
+                    /*
+                     * A click picks the day out; it takes a second one to go
+                     * there. Clicking about a month to see what is on is the
+                     * common act, and having each of those clicks change the
+                     * view made looking around feel like being dragged.
+                     *
+                     * A phone has no double tap worth relying on, and its
+                     * month cells show dots rather than titles, so there a tap
+                     * still opens the day — otherwise the view answers nothing.
+                     */
+                    onClick={() =>
+                      isMobile
+                        ? handlers.onNavigate(day, "day")
+                        : handlers.onSelectSlot(startOfDay(day), endOfDayOf(day), true)
+                    }
+                    onDoubleClick={() => handlers.onNavigate(day, "day")}
                     onContextMenu={(e) => handlers.onSlotMenu(e, day, false)}
                     onDragEnter={(e) => {
                       if (!dragHasFiles(e)) return;
@@ -187,10 +202,11 @@ export function MonthView({
                     <div className="flex h-[26px] items-center justify-center pt-[3px]">
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onDoubleClick={(e) => {
                           e.stopPropagation();
                           handlers.onNavigate(day, "day");
                         }}
+                        title="Double-click to open this day"
                         className={clsx(
                           "flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[12px] font-medium transition",
                           today
