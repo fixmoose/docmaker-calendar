@@ -6,6 +6,7 @@ import { CalendarX2 } from "lucide-react";
 import { useMemo } from "react";
 import { colorVar } from "@/lib/colors";
 import { occursOn, rangeLabel } from "@/lib/date";
+import { useIsSpent } from "@/lib/past";
 import { useStore } from "@/lib/store";
 import type { CalendarEvent } from "@/lib/types";
 import { AttachmentBadge } from "./Attachments";
@@ -25,6 +26,7 @@ function Row({
 }) {
   const { calendarById } = useStore();
   const color = useEventColor(event);
+  const spent = useIsSpent(event);
   const calendar = calendarById(event.calendarId);
   const { provenance, others, label } = useEventPeople(event);
 
@@ -41,6 +43,7 @@ function Row({
       style={colorVar(color)}
       className={clsx(
         "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-surface-2",
+        spent && "opacity-55",
         handlers.selectedId === event.id && "bg-surface-2",
       )}
     >

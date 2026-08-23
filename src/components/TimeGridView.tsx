@@ -5,6 +5,7 @@ import { addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Paperclip } from "lucide-react";
 import { colorVar } from "@/lib/colors";
+import { useIsSpent } from "@/lib/past";
 import { dragHasFiles, filesFromDrag } from "@/lib/files";
 import {
   isBanner,
@@ -87,6 +88,7 @@ function Block({
   const start = new Date(event.start);
   const end = new Date(event.end);
   const masked = Boolean(event.masked);
+  const spent = useIsSpent(event);
   const { over, handlers: dropHandlers } = useFileDrop(onFiles);
 
   return (
@@ -99,6 +101,8 @@ function Block({
       title={masked ? label : `${event.title} — ${label}`}
       className={clsx(
         "group absolute overflow-hidden rounded-[7px] border px-2 py-1 text-[12px] transition select-none",
+        // Already happened: recede, without becoming a different kind of thing.
+        spent && "opacity-55",
         masked
           ? "cc-busy border-dashed"
           : "cc-tint cc-tint-border cc-rail hover:z-20 hover:shadow-[var(--shadow-sm)]",

@@ -102,7 +102,7 @@ interface EventRow {
   feed_id: string | null;
   list_kind: ListKind | null;
   masked: boolean;
-  rrule: string | null;
+  rrule?: string | null;
 }
 
 interface AttachmentRow {
@@ -498,6 +498,25 @@ export async function bootstrapMe(supabase: Client) {
   if (error) throw error;
 }
 
+/** The columns the event feed has always had. */
+const FEED_COLUMNS =
+  "id,calendar_id,owner_id,title,notes,location,starts_at,ends_at,all_day,color,privacy,importance,created_by,feed_id,list_kind,masked";
+
+/**
+ * The events, asking for the repeat rule but not depending on it.
+ *
+ * A deploy and a schema change are never simultaneous, and the feed is the one
+ * thing the calendar cannot do without: asking for a column that is not there
+ * yet would empty somebody's calendar until they ran a file. So the new column
+ * is requested, and its absence costs only repeating events.
+ */
+async function loadFeed(supabase: Client) {
+  const withRule = await supabase.from("cc_calendar_feed").select(`${FEED_COLUMNS},rrule`);
+  // 42703: the column does not exist yet — the view predates delta-repeat.sql.
+  if (withRule.error?.code !== "42703") return withRule;
+  return supabase.from("cc_calendar_feed").select(FEED_COLUMNS);
+}
+
 /** Everything the calendar needs, in one round of parallel queries. */
 export async function loadWorkspace(
   supabase: Client,
@@ -515,11 +534,7 @@ export async function loadWorkspace(
         .from("cc_calendars")
         .select("id,name,kind,color,owner_id,group_id,privacy")
         .order("created_at"),
-      supabase
-        .from("cc_calendar_feed")
-        .select(
-          "id,calendar_id,owner_id,title,notes,location,starts_at,ends_at,all_day,color,privacy,importance,created_by,feed_id,list_kind,masked,rrule",
-        ),
+      loadFeed(supabase),
       supabase.from("cc_event_guests").select("event_id,user_id"),
       supabase
         .from("cc_attachments")

@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { AlertTriangle } from "lucide-react";
 import { colorVar } from "@/lib/colors";
+import { isPast, isSpent, outstanding, useNow } from "@/lib/past";
 import { timeLabel } from "@/lib/date";
 import { useStore } from "@/lib/store";
 import type { CalendarEvent, ColorKey } from "@/lib/types";
@@ -47,6 +48,11 @@ export function EventPill({
   const { provenance, others, label } = useEventPeople(event);
   const start = new Date(event.start);
   const masked = Boolean(event.masked);
+  const now = useNow();
+  const spent = isSpent(event, now);
+  // Past, but with things still unticked: the opposite of finished.
+  const overdue = isPast(event, now) && !spent;
+  const left = outstanding(event);
   const { over, handlers: dropHandlers } = useFileDrop((files) => onFiles?.(files));
 
   return (
@@ -67,6 +73,8 @@ export function EventPill({
       title={`${event.title} — ${label}`}
       className={clsx(
         "flex h-[21px] w-full items-center gap-1.5 overflow-hidden px-1.5 text-[12px] leading-none transition select-none",
+        // Already happened: recede, but stay legible and stay itself.
+        spent && "opacity-55",
         event.importance === "urgent" && !masked && "ring-1 ring-[#d1443c]/40",
         masked
           ? "cc-busy border border-dashed font-medium italic"
@@ -101,6 +109,15 @@ export function EventPill({
           size={11}
           className={clsx("shrink-0", banner ? "opacity-90" : "text-[#d1443c]")}
         />
+      )}
+      {/* Its date has gone by and the list has not been finished. */}
+      {left > 0 && overdue && (
+        <span
+          title={`${left} still to do`}
+          className="shrink-0 rounded-full bg-[#d1443c] px-1 text-[10px] leading-[14px] font-semibold text-white"
+        >
+          {left}
+        </span>
       )}
       <NoteBadge event={event} className={banner ? "opacity-90" : "text-ink-faint"} />
       <ListBadge event={event} className={banner ? "opacity-90" : "text-ink-faint"} />
