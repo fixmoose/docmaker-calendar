@@ -446,10 +446,18 @@ export function TimeGridView({
       onScroll={strip ? onPan : undefined}
       className={clsx(
         "flex min-h-0 flex-1 flex-col bg-surface",
-        // The browser pans it: finger-tracking, momentum and settling for
-        // free, and none of it written here. Both axes belong to this one
-        // element, so the hour gutter has something to pin itself to.
-        strip && "cc-scroll snap-x snap-mandatory overflow-auto",
+        /*
+         * The browser pans it: finger-tracking and momentum for free, and none
+         * of it written here. Both axes belong to this one element, so the
+         * hour gutter has something to pin itself to.
+         *
+         * Nothing snaps. It stops where you stop it, and the worst that
+         * happens is part of a fourth day showing at the edge, which is a
+         * better answer than the calendar arguing with your thumb.
+         * overscroll-x-contain keeps a pan near the edge from being taken as
+         * the browser's own back gesture.
+         */
+        strip && "cc-scroll overflow-auto overscroll-x-contain",
       )}
       style={
         strip
@@ -481,7 +489,6 @@ export function TimeGridView({
                */
               className={clsx(
                 "flex flex-col items-center justify-center gap-0.5 border-l border-line py-2 transition hover:bg-surface-2 sm:flex-row sm:gap-1.5",
-                strip && "snap-start",
               )}
             >
               <span
