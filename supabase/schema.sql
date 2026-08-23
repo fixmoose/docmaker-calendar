@@ -615,11 +615,16 @@ create policy cc_event_shares_read on cc_event_shares for select using (
   )
 );
 drop policy if exists cc_event_shares_write on cc_event_shares;
+-- Whoever may change the event may change who is on it — including a guest,
+-- since a share is editable. Leaving a share you are on is always yours.
 create policy cc_event_shares_write on cc_event_shares for all using (
   shared_by = auth.uid()
+  or user_id = auth.uid()
   or exists (
     select 1 from cc_events e
-    where e.id = event_id and cc_can_write_calendar(e.calendar_id, auth.uid())
+    where e.id = event_id
+      and (cc_can_write_calendar(e.calendar_id, auth.uid())
+           or cc_is_shared_with(e.id, auth.uid()))
   )
 ) with check (
   shared_by = auth.uid()

@@ -916,20 +916,29 @@ export async function setShares(
   /** Who is on this event by standing arrangement rather than by decision. */
   automatic: string[] = [],
 ) {
-  const { error: clearError } = await supabase
-    .from("cc_event_shares")
-    .delete()
-    .eq("event_id", eventId);
+  const wanted = [...new Set(userIds)];
+
+  // Take off only the people who have actually gone. Clearing the lot and
+  // writing it back made every save depend on the delete being permitted, and
+  // when it silently was not — a guest saving somebody else's event — the
+  // rows that stayed collided with the ones being written.
+  const remove = supabase.from("cc_event_shares").delete().eq("event_id", eventId);
+  const { error: clearError } = wanted.length
+    ? await remove.not("user_id", "in", `(${wanted.join(",")})`)
+    : await remove;
   if (clearError) throw clearError;
 
-  if (!userIds.length) return;
-  const { error } = await supabase.from("cc_event_shares").insert(
-    userIds.map((user_id) => ({
+  if (!wanted.length) return;
+
+  // Already there is success, not a collision.
+  const { error } = await supabase.from("cc_event_shares").upsert(
+    wanted.map((user_id) => ({
       event_id: eventId,
       user_id,
       shared_by: sharedBy,
       automatic: automatic.includes(user_id),
     })),
+    { onConflict: "event_id,user_id", ignoreDuplicates: true },
   );
   if (error) throw error;
 }
