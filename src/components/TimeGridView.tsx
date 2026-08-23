@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { addMinutes, format, isSameDay, isToday, startOfDay } from "date-fns";
+import { addMinutes, endOfDay, format, isSameDay, isToday, startOfDay } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Paperclip } from "lucide-react";
 import { colorVar } from "@/lib/colors";
@@ -436,6 +436,19 @@ export function TimeGridView({
   };
 
   const selectedSlot = handlers.selectedSlot;
+
+  /**
+   * Whether the whole of this day is what has been picked out — the state you
+   * get by clicking its name at the top, as opposed to an hour inside it.
+   */
+  const wholeDaySelected = (day: Date) => {
+    if (!selectedSlot) return false;
+    const from = new Date(selectedSlot.start);
+    const to = new Date(selectedSlot.end);
+    return (
+      isSameDay(from, day) && to.getTime() - from.getTime() > 23 * 60 * 60 * 1000
+    );
+  };
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const nowMinutes = minutesFromMidnight(now);
   const single = days.length === 1;
@@ -481,14 +494,32 @@ export function TimeGridView({
             <button
               key={day.toISOString()}
               type="button"
-              onClick={() => handlers.onNavigate(day, "day")}
+              /*
+               * Clicking the name picks the whole day out; it takes a second
+               * click to go there. On a phone one tap still opens it: there is
+               * no second click worth waiting for, and less room to work in.
+               */
+              onClick={() =>
+                isMobile
+                  ? handlers.onNavigate(day, "day")
+                  : handlers.onSelectSlot(startOfDay(day), endOfDay(day), true)
+              }
+              onDoubleClick={() => handlers.onNavigate(day, "day")}
+              title={
+                isMobile
+                  ? undefined
+                  : `Pick out ${format(day, "EEEE d MMMM")} — double-click to open it`
+              }
               /*
                * Stacked on a narrow column, side by side when there is room.
                * Laid out in a row, "MON" and "17" collided with the next day's
                * label as soon as the column dropped below about 60px.
                */
               className={clsx(
-                "flex flex-col items-center justify-center gap-0.5 border-l border-line py-2 transition hover:bg-surface-2 sm:flex-row sm:gap-1.5",
+                "flex flex-col items-center justify-center gap-0.5 border-l border-line py-2 transition sm:flex-row sm:gap-1.5",
+                wholeDaySelected(day)
+                  ? "bg-brand-soft ring-1 ring-brand/40 ring-inset"
+                  : "hover:bg-surface-2",
               )}
             >
               <span
@@ -644,6 +675,7 @@ export function TimeGridView({
                 className={clsx(
                   "relative border-l border-line",
                   isToday(day) && !single && "bg-brand-soft/25",
+                  wholeDaySelected(day) && "bg-brand-soft/45",
                 )}
                 onPointerDown={(e) => {
                   // A finger here is scrolling until it proves otherwise.
