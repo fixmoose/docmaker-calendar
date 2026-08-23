@@ -4,9 +4,9 @@ import clsx from "clsx";
 import {
   ArrowDownLeft,
   Check,
+  ArrowLeft,
   Eye,
   EyeOff,
-  Home,
   Lock,
   Mail,
   Palette,
@@ -364,7 +364,21 @@ export function Sidebar({
           className="h-8 w-8"
         />
         <div className="text-[15px] leading-none font-bold tracking-tight text-ink">
-          DocMaker <span className="text-brand">Calendar</span>
+          {/*
+           * Out to the studio the calendar belongs to. A new tab, because
+           * leaving in this one would take somebody away from a calendar they
+           * were in the middle of using.
+           */}
+          <a
+            href="https://docmaker.studio"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="DocMaker Studio"
+            className="rounded-sm transition hover:text-brand hover:underline hover:underline-offset-2"
+          >
+            DocMaker
+          </a>{" "}
+          <span className="text-brand">Calendar</span>
         </div>
       </div>
 
@@ -382,22 +396,21 @@ export function Sidebar({
       </div>
 
       <div className="cc-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        <button
-          type="button"
-          onClick={() => onFocus(null)}
-          className={clsx(
-            "mb-2 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] transition",
-            focus
-              ? "text-ink-muted hover:bg-surface-2 hover:text-ink"
-              : "bg-surface-2 font-medium text-ink",
-          )}
-        >
-          <Home size={14} className="shrink-0 text-ink-faint" />
-          Everything
-          {focus && (
-            <span className="ml-auto text-[11px] text-brand">back to all</span>
-          )}
-        </button>
+        {/*
+         * Only while something is being shown on its own. Sitting there
+         * permanently, "Everything" named the state you were already in and
+         * read as a heading for a section that did not exist.
+         */}
+        {focus && (
+          <button
+            type="button"
+            onClick={() => onFocus(null)}
+            className="mb-2 flex w-full items-center gap-2 rounded-lg border border-brand/40 bg-brand-soft px-2.5 py-2 text-left text-[13px] font-medium text-brand transition hover:bg-brand/10"
+          >
+            <ArrowLeft size={14} className="shrink-0" />
+            Show all my calendars again
+          </button>
+        )}
 
         <JoinRequests />
 

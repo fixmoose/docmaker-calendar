@@ -43,7 +43,16 @@ export default function LandingPage() {
       <header className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-5 sm:gap-3 sm:px-6 sm:py-6">
         <Image src="/logo-mark.png" alt="" width={34} height={34} className="h-[34px] w-[34px]" />
         <span className="truncate text-[15px] font-bold tracking-tight text-ink sm:text-[16px]">
-          DocMaker <span className="text-brand">Calendar</span>
+          <a
+            href="https://docmaker.studio"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="DocMaker Studio"
+            className="rounded-sm transition hover:text-brand hover:underline hover:underline-offset-2"
+          >
+            DocMaker
+          </a>{" "}
+          <span className="text-brand">Calendar</span>
         </span>
         <nav className="ml-auto flex items-center gap-2">
           <Link
