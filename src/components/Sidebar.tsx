@@ -144,6 +144,7 @@ function PersonRow({
   const store = useStore();
   const person = store.personById(personId);
   const traffic = store.trafficWith(personId);
+  const presence = store.presenceOf(personId);
   if (!person) return null;
   const busyShown = !store.busyHidden.includes(personId);
 
@@ -162,6 +163,17 @@ function PersonRow({
         className="min-w-0 flex-1 truncate text-left text-[13px] text-ink"
       >
         {person.name}
+        {/*
+         * Said in words as well as in colour. Whether somebody is there to
+         * answer you is the useful half of presence, and a six-pixel dot is
+         * not something anybody notices while looking at a calendar.
+         */}
+        {presence === "active" && (
+          <span className="ml-1.5 text-[11px] font-medium text-[#3f9142]">here now</span>
+        )}
+        {presence === "away" && (
+          <span className="ml-1.5 text-[11px] text-ink-faint">away</span>
+        )}
       </button>
       {/* what they sent you, and what you sent them */}
       <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-faint tabular-nums">
@@ -199,14 +211,28 @@ function PersonRow({
 function SectionTitle({
   children,
   action,
+  count,
 }: {
   children: React.ReactNode;
   action?: React.ReactNode;
+  /** How many of the people below are in their calendar right now. */
+  count?: number;
 }) {
   return (
-    <div className="flex items-center justify-between px-2 pt-4 pb-1">
-      <span className="text-[11px] font-semibold tracking-wider text-ink-faint uppercase">
-        {children}
+    <div className="flex items-center justify-between gap-2 px-2 pt-4 pb-1">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate text-[11px] font-semibold tracking-wider text-ink-faint uppercase">
+          {children}
+        </span>
+        {count !== undefined && count > 0 && (
+          <span
+            title={`${count} in their calendar right now`}
+            className="flex shrink-0 items-center gap-1 rounded-full bg-[#3f9142]/12 px-1.5 py-px text-[10px] font-semibold text-[#3f9142]"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#3f9142]" />
+            {count} here
+          </span>
+        )}
       </span>
       {action}
     </div>
@@ -496,6 +522,9 @@ export function Sidebar({
         })}
 
         <SectionTitle
+          count={
+            store.contacts.filter((p) => store.presenceOf(p.id) === "active").length
+          }
           action={<AddButton label="Invite someone" onClick={onInvite} />}
         >
           People I can share with
