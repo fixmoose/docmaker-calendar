@@ -280,6 +280,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * being looked at rather than covering all of history, so a daily event does
    * not become ten thousand objects on the first paint.
    */
+  /** Bumped to build a fresh channel after the old one gave up. */
+  const [resubscribe, setResubscribe] = useState(0);
+
   const [horizon, setHorizon] = useState(() => {
     const from = new Date();
     from.setMonth(from.getMonth() - 6, 1);
@@ -349,10 +352,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * are only told about rows we could have read anyway. Rather than patching
    * state from the payload we re-read, which keeps busy masking correct — the
    * masking lives in the cc_calendar_feed view, not in the raw row.
+   *
+   * The socket is not the whole answer, though. A tab left open overnight
+   * comes back to a channel that quietly died — the laptop slept, the wifi
+   * moved, the access token rotated underneath it — and a dead channel looks
+   * exactly like a calendar where nothing has happened. So the connection is
+   * watched and rebuilt when it fails, and coming back to the tab or back
+   * online re-reads once. No timer: nothing polls while you are away, and
+   * what you are shown is right the moment you look at it.
    */
   useEffect(() => {
     if (!user) return;
     let timer: number | null = null;
+    let retry: number | null = null;
+    let attempts = 0;
+    let alive = true;
+
     const reload = () => {
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
@@ -385,13 +400,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         { event: "*", schema: "public", table: "cc_event_shares" },
         reload,
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // Anything that happened while the channel was down is caught here.
+          attempts = 0;
+          reload();
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (!alive || retry) return;
+          // Backing off rather than hammering a connection that is refusing.
+          const wait = Math.min(30_000, 1000 * 2 ** attempts++);
+          retry = window.setTimeout(() => {
+            retry = null;
+            if (!alive) return;
+            void supabase.removeChannel(channel);
+            setResubscribe((n) => n + 1);
+          }, wait);
+        }
+      });
+
+    /** Coming back to the tab, or back online, is worth one fresh read. */
+    const onWake = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("online", reload);
+    window.addEventListener("focus", onWake);
 
     return () => {
+      alive = false;
       if (timer) window.clearTimeout(timer);
+      if (retry) window.clearTimeout(retry);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("online", reload);
+      window.removeEventListener("focus", onWake);
       void supabase.removeChannel(channel);
     };
-  }, [supabase, user, load]);
+  }, [supabase, user, load, resubscribe]);
 
   // Sessions refresh in the background; follow them rather than reading once.
   useEffect(() => {
@@ -402,6 +448,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setData(EMPTY);
         return;
+      }
+      if (event === "TOKEN_REFRESHED" && session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
       }
       if (session?.user) setUser((current) => current ?? session.user);
     });
