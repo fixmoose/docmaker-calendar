@@ -8,6 +8,7 @@ import { useSettings, type Settings } from "@/lib/settings";
 import { useStore } from "@/lib/store";
 import type { CalendarView } from "@/lib/types";
 import { AutoShareField } from "./AutoShareField";
+import { CalDavConnect } from "./CalDavConnect";
 import { ExternalCalendars } from "./ExternalCalendars";
 import { InstallHint } from "./InstallHint";
 import { TOUR_SEEN_KEY } from "./PhoneTour";
@@ -173,6 +174,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
         <Field label="Other calendars">
           <ExternalCalendars />
+        </Field>
+
+        <Field label="Send my events to my own server">
+          <CalDavConnect />
         </Field>
 
         <Field label="On your phone">

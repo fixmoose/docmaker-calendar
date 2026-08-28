@@ -223,3 +223,65 @@ export function feedUrlProblem(url: string): string | null {
 
   return null;
 }
+
+
+/* ------------------------------------------------------------------ *
+ * Writing
+ * ------------------------------------------------------------------ */
+
+const fold = (line: string) =>
+  line.length <= 75 ? line : line.match(/.{1,73}/g)!.join("\r\n ");
+
+const escape = (text: string) =>
+  text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+
+const stamp = (date: Date, allDay = false) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+  return allDay ? day : `${day}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}00Z`;
+};
+
+/**
+ * One event as a calendar file, for handing to somebody else's server.
+ *
+ * The UID is this event's own id, so sending it twice replaces the first copy
+ * rather than making a second. A repeating event carries its rule across whole,
+ * which is why the far end shows one entry rather than three hundred.
+ */
+export function eventToIcs(event: {
+  id: string;
+  title: string;
+  notes?: string;
+  location?: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  rrule?: string;
+  updatedAt?: string;
+}): string {
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+  const rule = event.rrule?.split("\n").find((l) => l.startsWith("RRULE:"));
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//DocMaker Studio//DocMaker Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${event.id}`,
+    `DTSTAMP:${stamp(new Date(event.updatedAt ?? event.start))}`,
+    event.allDay
+      ? `DTSTART;VALUE=DATE:${stamp(start, true)}`
+      : `DTSTART:${stamp(start)}`,
+    event.allDay ? `DTEND;VALUE=DATE:${stamp(end, true)}` : `DTEND:${stamp(end)}`,
+    `SUMMARY:${escape(event.title)}`,
+    ...(event.location ? [`LOCATION:${escape(event.location)}`] : []),
+    ...(event.notes ? [`DESCRIPTION:${escape(event.notes)}`] : []),
+    ...(rule ? [rule] : []),
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+
+  return lines.map(fold).join("\r\n") + "\r\n";
+}
