@@ -198,7 +198,7 @@ export function SettingsDialog({
           </Field>
         </Group>
 
-        <Group title="Where this calendar lives" icon={CalendarSync}>
+        <Group title="Third-party calendars" icon={CalendarSync}>
           <OtherCalendars onAddSubscription={onAddSubscription} />
         </Group>
 

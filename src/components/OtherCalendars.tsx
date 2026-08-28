@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { IcsImport } from "./IcsImport";
+import { ProviderPicker } from "./ProviderPicker";
 import { Button, controlClass } from "./ui";
 
 /**
@@ -60,10 +61,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
   const [busy, setBusy] = useState<null | "push" | "connect">(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [picking, setPicking] = useState(false);
 
   const load = () => {
     void fetch("/api/caldav/status")
@@ -76,27 +74,6 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
   };
 
   useEffect(load, []);
-
-  const connect = async () => {
-    setBusy("connect");
-    setError(null);
-    try {
-      const res = await fetch("/api/caldav/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl, username, password }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Could not connect.");
-      setPassword("");
-      setAdding(false);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not connect.");
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const choose = async (patch: Record<string, unknown>) => {
     setStatus((s) => (s ? { ...s, ...patch } : s));
@@ -293,75 +270,26 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
         </p>
       )}
 
-      {/* Adding */}
-      {adding ? (
-        <div className="space-y-2 rounded-xl border border-brand/40 bg-brand-soft/40 p-3">
-          <p className="text-[12px] font-medium text-ink">
-            Sync this calendar to a server of your own
-          </p>
-          <input
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://your-nextcloud/remote.php/dav"
-            className={`${controlClass} w-full py-2 text-[13px]`}
-          />
-          <div className="flex gap-2">
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Username"
-              className={`${controlClass} min-w-0 flex-1 py-2 text-[13px]`}
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="App password"
-              autoComplete="new-password"
-              className={`${controlClass} min-w-0 flex-1 py-2 text-[13px]`}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              onClick={() => void connect()}
-              disabled={busy !== null || !baseUrl || !username || !password}
-            >
-              {busy === "connect" && <Loader2 size={13} className="animate-spin" />}
-              Connect
-            </Button>
-            <Button variant="ghost" onClick={() => setAdding(false)}>
-              Cancel
-            </Button>
-          </div>
-          <p className="text-[12px] leading-relaxed text-ink-faint">
-            An app password, not the one you log in with — Nextcloud puts them
-            under Settings, Security. Stored encrypted and never shown again.
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {/*
-           * "Sync" on the buttons because that is the word people came looking
-           * for; the rows themselves say which way things actually travel, so
-           * nobody is left believing a change made over there will find its
-           * way back here.
-           */}
-          <Button variant="outline" onClick={onAddSubscription}>
-            <Plus size={14} />
-            <span className="text-left">
-              Sync a third-party calendar{" "}
-              <span className="font-normal opacity-70">
-                (Outlook, Gmail, Nextcloud, iPhone, Zoho…)
-              </span>
-            </span>
-          </Button>
-          {!status?.connected && (
-            <Button variant="outline" onClick={() => setAdding(true)}>
-              <Plus size={14} /> Sync mine to my own server
-            </Button>
-          )}
-        </div>
+      <Button variant="outline" onClick={() => setPicking(true)}>
+        <Plus size={14} />
+        <span className="text-left">
+          Sync a third-party calendar{" "}
+          <span className="font-normal opacity-70">
+            (Outlook, Gmail, Nextcloud, iPhone, Zoho…)
+          </span>
+        </span>
+      </Button>
+
+      {picking && (
+        <ProviderPicker
+          onClose={() => setPicking(false)}
+          onLink={() => {
+            setPicking(false);
+            onAddSubscription();
+          }}
+          onFile={() => setPicking(false)}
+          onConnected={load}
+        />
       )}
 
       {error && (
