@@ -65,6 +65,23 @@ export async function pull(admin: SupabaseClient, link: Link) {
     .eq("link_id", link.id);
   const byHref = new Map((known ?? []).map((o) => [o.href as string, o]));
 
+  /*
+   * Which of these are ours, told by asking rather than by the shape of the
+   * id. Nextcloud names its own events with UUIDs too, so "looks like a UUID"
+   * matched events made over there — and each one was applied to a row of ours
+   * that did not exist, counted as updated, and never imported. That is why an
+   * event created in Nextcloud never arrived: it was mistaken for its own
+   * reflection.
+   */
+  const candidates = remote
+    .map((o) => decodeURIComponent(o.href.split("/").pop() ?? "").replace(/\.ics$/i, ""))
+    .filter((uid) => UUID.test(uid));
+  const mineAlready = new Set<string>();
+  if (candidates.length) {
+    const { data } = await admin.from("cc_events").select("id").in("id", candidates);
+    for (const row of data ?? []) mineAlready.add(row.id as string);
+  }
+
   const from = new Date(Date.now() - WINDOW_BACK_DAYS * 86400_000);
   const to = new Date(Date.now() + WINDOW_FORWARD_DAYS * 86400_000);
 
@@ -82,7 +99,7 @@ export async function pull(admin: SupabaseClient, link: Link) {
 
     // An event of ours, coming back changed: the far end edited it, so take
     // that. Editing here and syncing writes it out again in the other pass.
-    const ours = UUID.test(event.uid);
+    const ours = mineAlready.has(event.uid);
 
     const row = {
       title: event.title,

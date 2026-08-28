@@ -191,7 +191,26 @@ function toIcsStamp(date: Date) {
 
 /** Google and Outlook both hand out webcal:// links that are really https. */
 export function normaliseFeedUrl(url: string) {
-  const clean = url.trim().replace(/^webcal:\/\//i, "https://");
+  let clean = url.trim().replace(/^webcal:\/\//i, "https://");
+
+  // People paste the embed code, because that is what the share dialog gives
+  // them: a whole iframe tag with the address buried in it.
+  const framed = clean.match(/src\s*=\s*["']([^"']+)["']/i);
+  if (framed) clean = framed[1].trim();
+
+  /*
+   * Nextcloud shows a share as a page to look at and an embed to paste, and
+   * neither is a calendar file — the first is HTML and the second is an
+   * iframe of that HTML. Both carry the token, though, and the token is what
+   * the calendar itself is served under.
+   */
+  const shared = clean.match(
+    /^(https?:\/\/[^/]+)\/(?:index\.php\/)?apps\/calendar\/(?:embed|p)\/([^/?#]+)/i,
+  );
+  if (shared) {
+    return `${shared[1]}/remote.php/dav/public-calendars/${shared[2]}?export`;
+  }
+
   // Nextcloud hands out subscription links without it, and returns a directory
   // listing rather than a calendar unless it is asked for the export.
   if (/\/remote\.php\/dav\/public-calendars\/[^/?]+$/i.test(clean)) {
