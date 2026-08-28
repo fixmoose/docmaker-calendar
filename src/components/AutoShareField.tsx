@@ -49,7 +49,8 @@ export function AutoShareField() {
   return (
     <div className="space-y-2">
       {chosen.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] text-ink-faint">Everything goes to</span>
           {chosen.map((person) => (
             <span
               key={person.id}
@@ -70,18 +71,28 @@ export function AutoShareField() {
         </div>
       )}
 
+      {/*
+       * These are buttons, and they now look like it. As a row of outlined
+       * pills with a small plus tucked at the end they read as a list of
+       * names — something being shown to you rather than something to press —
+       * and the question people asked was how to add anybody at all.
+       */}
       {rest.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] text-ink-faint">
+            {chosen.length ? "Also add" : "Add"}
+          </span>
           {rest.map((person) => (
             <button
               key={person.id}
               type="button"
               onClick={() => add(person.id)}
-              className="flex items-center gap-1.5 rounded-full border border-line py-1 pr-2.5 pl-1 text-[13px] text-ink-muted transition hover:bg-surface-2 hover:text-ink"
+              title={`Share every new event with ${person.name}`}
+              className="flex items-center gap-1.5 rounded-full border border-dashed border-brand/50 bg-surface py-1 pr-3 pl-1.5 text-[13px] font-medium text-brand transition hover:bg-brand-soft"
             >
+              <UserPlus size={13} />
               <Avatar person={person} size={20} />
               {person.name}
-              <UserPlus size={12} className="text-ink-faint" />
             </button>
           ))}
         </div>
@@ -98,7 +109,7 @@ export function AutoShareField() {
           ? `Every new event you make already has ${chosen
               .map((p) => p.name.split(" ")[0])
               .join(" and ")} on it, and you can take them off any single one. They are not told about each event — that would be a notification for every dentist appointment — but they see it on their calendar, and they can correct it.`
-          : "Pick somebody and every event you create is shared with them from the start, without your adding them each time."}
+          : "Press a name above and every event you create is shared with them from the start, without your adding them each time."}
       </p>
 
       {chosen.length > 0 && (
