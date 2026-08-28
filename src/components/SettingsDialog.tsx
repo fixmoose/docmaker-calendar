@@ -8,6 +8,7 @@ import { useSettings, type Settings } from "@/lib/settings";
 import { useStore } from "@/lib/store";
 import type { CalendarView } from "@/lib/types";
 import { AutoShareField } from "./AutoShareField";
+import { ExternalCalendars } from "./ExternalCalendars";
 import { InstallHint } from "./InstallHint";
 import { TOUR_SEEN_KEY } from "./PhoneTour";
 import { PushToggle } from "./PushToggle";
@@ -168,6 +169,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
         <Field label="Notifications on this device">
           <PushToggle />
+        </Field>
+
+        <Field label="Other calendars">
+          <ExternalCalendars />
         </Field>
 
         <Field label="On your phone">
