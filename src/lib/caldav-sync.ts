@@ -87,6 +87,8 @@ export async function pull(admin: SupabaseClient, link: Link) {
 
   let added = 0;
   let updated = 0;
+  /** Ours, seen again: worth remembering the version, not worth applying. */
+  const etagOnly: { eventId: string; href: string; etag?: string }[] = [];
 
   for (const object of remote) {
     const seen = byHref.get(object.href);
@@ -111,8 +113,19 @@ export async function pull(admin: SupabaseClient, link: Link) {
     };
 
     if (ours) {
-      const { error } = await admin.from("cc_events").update(row).eq("id", event.uid);
-      if (!error) updated += 1;
+      /*
+       * An event of ours, read back. We do not apply it.
+       *
+       * The round trip is not lossless yet: an all-day event went out as a
+       * date, came back as midday, and was written down as a move — which
+       * reached everybody it was shared with as "Someone moved it to Saturday
+       * 29 Aug", from nobody, about an appointment that had not moved.
+       *
+       * Losing an edit made at the far end is a nuisance. Silently shifting an
+       * appointment and announcing it is worse, so until the two ends agree on
+       * exactly what an all-day event is, this side keeps what it wrote.
+       */
+      etagOnly.push({ eventId: event.uid, href: object.href, etag });
     } else {
       // Somebody made this over there. It becomes an event here, under an id
       // of our own, remembered by href so the next pass recognises it.
@@ -138,17 +151,24 @@ export async function pull(admin: SupabaseClient, link: Link) {
       }
     }
 
-    await admin
-      .from("cc_caldav_objects")
-      .upsert(
+    if (!ours) {
+      await admin.from("cc_caldav_objects").upsert(
         {
           link_id: link.id,
-          event_id: ours ? event.uid : (seen?.event_id as string),
+          event_id: seen?.event_id as string,
           href: object.href,
           etag: etag ?? null,
         },
         { onConflict: "link_id,event_id" },
       );
+    }
+  }
+
+  for (const seen of etagOnly) {
+    await admin.from("cc_caldav_objects").upsert(
+      { link_id: link.id, event_id: seen.eventId, href: seen.href, etag: seen.etag ?? null },
+      { onConflict: "link_id,event_id" },
+    );
   }
 
   // Gone from the far calendar: gone from here too, but only the ones that
