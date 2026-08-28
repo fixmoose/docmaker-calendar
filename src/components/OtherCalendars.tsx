@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
+import { IcsImport } from "./IcsImport";
 import { Button, controlClass } from "./ui";
 
 /**
@@ -369,6 +370,10 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
           {error}
         </p>
       )}
+
+      <div className="border-t border-line pt-3">
+        <IcsImport />
+      </div>
     </div>
   );
 }

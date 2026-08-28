@@ -979,6 +979,49 @@ interface VoteRow {
   approve: boolean;
 }
 
+/**
+ * Events out of a calendar file, put onto a calendar here.
+ *
+ * A one-off: the file is a snapshot, so what arrives is ordinary events that
+ * can be edited and deleted like any other, rather than a copy kept in step
+ * with something. Re-importing the same file replaces what it brought last
+ * time rather than doubling it, since each event keeps the file's own UID.
+ */
+export async function importIcsEvents(
+  supabase: Client,
+  calendarId: string,
+  userId: string,
+  events: { uid: string; title: string; notes?: string; location?: string; start: Date; end: Date; allDay: boolean }[],
+) {
+  if (!events.length) return 0;
+
+  const rows = events.map((event) => ({
+    id: crypto.randomUUID(),
+    calendar_id: calendarId,
+    created_by: userId,
+    external_uid: event.uid,
+    title: event.title,
+    notes: event.notes ?? null,
+    location: event.location ?? null,
+    starts_at: event.start.toISOString(),
+    ends_at: event.end.toISOString(),
+    all_day: event.allDay,
+  }));
+
+  // Anything from an earlier import of the same events makes way for this one.
+  const uids = rows.map((r) => r.external_uid);
+  await supabase
+    .from("cc_events")
+    .delete()
+    .eq("calendar_id", calendarId)
+    .is("feed_id", null)
+    .in("external_uid", uids);
+
+  const { error } = await supabase.from("cc_events").insert(rows);
+  if (error) throw error;
+  return rows.length;
+}
+
 /* ------------------------------------------------------------------ *
  * Repeating events
  * ------------------------------------------------------------------ */
