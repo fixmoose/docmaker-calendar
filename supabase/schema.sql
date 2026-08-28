@@ -1537,7 +1537,10 @@ begin
   end if;
 
   select display_name into actor_name from cc_profiles where id = actor;
-  summary := coalesce(actor_name, 'Someone') || ' ' || array_to_string(parts, ', ');
+  -- Nobody signed in means a connected calendar rather than a person, and
+  -- saying so is the difference between an explanation and a fright.
+  summary := coalesce(actor_name, 'A connected calendar')
+             || ' ' || array_to_string(parts, ', ');
 
   insert into cc_event_changes (event_id, actor_id, summary)
   values (new.id, actor, summary);
@@ -2137,7 +2140,10 @@ begin
   end if;
 
   select display_name into actor_name from cc_profiles where id = actor;
-  summary := coalesce(actor_name, 'Someone') || ' ' || array_to_string(parts, ', ');
+  -- Nobody signed in means a connected calendar rather than a person, and
+  -- saying so is the difference between an explanation and a fright.
+  summary := coalesce(actor_name, 'A connected calendar')
+             || ' ' || array_to_string(parts, ', ');
 
   insert into cc_event_changes (event_id, actor_id, summary)
   values (new.id, actor, summary);

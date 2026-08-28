@@ -31,6 +31,35 @@ const WINDOW_BACK_DAYS = 365;
 const WINDOW_FORWARD_DAYS = 400;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Whether these two are the same event, as a person would judge it.
+ *
+ * The two ends do not agree on what an all-day event is: one keeps it at local
+ * midnight, the other writes it as a bare date and reads it back as midday
+ * UTC. Comparing the instants therefore says everything moved on every pass,
+ * which was recorded as a move and announced to everyone the event reaches —
+ * from nobody, about an appointment that had not moved.
+ *
+ * For an all-day event the day is the whole of what it means, so that is what
+ * is compared. For a timed one the instant matters and is compared exactly.
+ */
+function sameEvent(
+  a: { title: string; notes: string | null; location: string | null; starts_at: string; ends_at: string; all_day: boolean },
+  b: { title: string; notes: string | null; location: string | null; starts_at: string; ends_at: string; all_day: boolean },
+) {
+  if ((a.title ?? "") !== (b.title ?? "")) return false;
+  if ((a.notes ?? "") !== (b.notes ?? "")) return false;
+  if ((a.location ?? "") !== (b.location ?? "")) return false;
+  if (Boolean(a.all_day) !== Boolean(b.all_day)) return false;
+
+  const day = (iso: string) => new Date(iso).toISOString().slice(0, 10);
+  if (a.all_day) return day(a.starts_at) === day(b.starts_at);
+  return (
+    new Date(a.starts_at).getTime() === new Date(b.starts_at).getTime() &&
+    new Date(a.ends_at).getTime() === new Date(b.ends_at).getTime()
+  );
+}
+
 /** Where imported events land: the chosen calendar, else the owner's first. */
 async function targetCalendar(admin: SupabaseClient, link: Link) {
   if (link.source_calendar_id) return link.source_calendar_id;
@@ -85,6 +114,14 @@ export async function pull(admin: SupabaseClient, link: Link) {
   const from = new Date(Date.now() - WINDOW_BACK_DAYS * 86400_000);
   const to = new Date(Date.now() + WINDOW_FORWARD_DAYS * 86400_000);
 
+  // Who this person always shares with, so anything arriving is treated the
+  // same as anything they type in here.
+  const { data: standing } = await admin
+    .from("cc_auto_share")
+    .select("user_id")
+    .eq("owner_id", link.owner_id);
+  const autoShare = (standing ?? []).map((r) => r.user_id as string);
+
   let added = 0;
   let updated = 0;
   /** Ours, seen again: worth remembering the version, not worth applying. */
@@ -114,17 +151,21 @@ export async function pull(admin: SupabaseClient, link: Link) {
 
     if (ours) {
       /*
-       * An event of ours, read back. We do not apply it.
-       *
-       * The round trip is not lossless yet: an all-day event went out as a
-       * date, came back as midday, and was written down as a move — which
-       * reached everybody it was shared with as "Someone moved it to Saturday
-       * 29 Aug", from nobody, about an appointment that had not moved.
-       *
-       * Losing an edit made at the far end is a nuisance. Silently shifting an
-       * appointment and announcing it is worse, so until the two ends agree on
-       * exactly what an all-day event is, this side keeps what it wrote.
+       * An event of ours, read back. Applied only if it actually differs —
+       * somebody edited it in Nextcloud — and not because the two ends write
+       * an all-day event differently, which is not a change and must never be
+       * announced as one.
        */
+      const { data: current } = await admin
+        .from("cc_events")
+        .select("title,notes,location,starts_at,ends_at,all_day")
+        .eq("id", event.uid)
+        .maybeSingle();
+
+      if (current && !sameEvent(current, { ...row, all_day: event.allDay })) {
+        await admin.from("cc_events").update(row).eq("id", event.uid);
+        updated += 1;
+      }
       etagOnly.push({ eventId: event.uid, href: object.href, etag });
     } else {
       // Somebody made this over there. It becomes an event here, under an id
@@ -142,6 +183,25 @@ export async function pull(admin: SupabaseClient, link: Link) {
           created_by: link.owner_id,
         });
         if (error) continue;
+
+        /*
+         * An event made on your phone in Nextcloud is an event you made. It
+         * lands on your calendar here, so it should reach the people you
+         * always share with, exactly as it would had you typed it in — and
+         * quietly, like every other standing arrangement.
+         */
+        if (autoShare.length) {
+          await admin.from("cc_event_shares").upsert(
+            autoShare.map((user_id) => ({
+              event_id: id,
+              user_id,
+              shared_by: link.owner_id,
+              automatic: true,
+            })),
+            { onConflict: "event_id,user_id", ignoreDuplicates: true },
+          );
+        }
+
         await admin.from("cc_caldav_objects").upsert(
           { link_id: link.id, event_id: id, href: object.href, etag: etag ?? null },
           { onConflict: "link_id,event_id" },
