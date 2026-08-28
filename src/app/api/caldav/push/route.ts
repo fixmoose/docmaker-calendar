@@ -33,11 +33,28 @@ export async function POST() {
     );
   }
 
-  const credentials = {
-    baseUrl: link.base_url as string,
-    username: link.username as string,
-    password: decryptSecret(link.secret as string),
-  };
+  /*
+   * A stored password can only be read back with the same CC_SECRET_KEY it was
+   * written with. If that value changed, every saved connection is unreadable
+   * — which is the intended property, but it needs saying rather than becoming
+   * a five hundred with no explanation.
+   */
+  let credentials;
+  try {
+    credentials = {
+      baseUrl: link.base_url as string,
+      username: link.username as string,
+      password: decryptSecret(link.secret as string),
+    };
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "This connection cannot be read any more — the server's encryption key has changed since it was saved. Disconnect and connect it again.",
+      },
+      { status: 409 },
+    );
+  }
 
   // Only what belongs to this person: never anything shared with them, which
   // is somebody else's to put on their own server if they want it there.
