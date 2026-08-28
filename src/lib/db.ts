@@ -483,9 +483,29 @@ export async function insertFeed(
   return data.id as string;
 }
 
+/**
+ * Unsubscribing takes the calendar with it.
+ *
+ * Subscribing makes a calendar to put the imported events in, so removing the
+ * subscription and leaving that calendar behind leaves an empty one in the
+ * sidebar with no way to explain itself — and no way to remove it either,
+ * since it was never made by hand. The events go with it, which is right: they
+ * were a copy of somebody else's calendar, and the original is untouched.
+ */
 export async function deleteFeed(supabase: Client, id: string) {
+  const { data: feed } = await supabase
+    .from("cc_calendar_feeds")
+    .select("calendar_id")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("cc_calendar_feeds").delete().eq("id", id);
   if (error) throw error;
+
+  if (feed?.calendar_id) {
+    // Only ever the calendar this subscription made for itself.
+    await supabase.from("cc_calendars").delete().eq("id", feed.calendar_id);
+  }
 }
 
 /**
