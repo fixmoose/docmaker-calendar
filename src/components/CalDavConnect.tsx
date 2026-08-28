@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { Check, Loader2, Lock, Server, Upload, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Button, controlClass } from "./ui";
 
@@ -34,6 +34,35 @@ export function CalDavConnect() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [source, setSource] = useState<string>("");
   const [sent, setSent] = useState<number | null>(null);
+  const [lastPushed, setLastPushed] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  /*
+   * A connection outlives the page that made it, so it has to be asked for
+   * rather than remembered. Without this, closing Settings put the empty form
+   * back and the step that actually matters — saying which calendar to write
+   * into — could not be reached again.
+   */
+  const load = () => {
+    void fetch("/api/caldav/status")
+      .then((r) => r.json())
+      .then((body) => {
+        if (body.connected) {
+          setBaseUrl(body.baseUrl ?? "");
+          setUsername(body.username ?? "");
+          setCalendars(body.calendars ?? []);
+          setChosen(body.calendarHref ?? null);
+          setSource(body.sourceCalendarId ?? "");
+          setLastPushed(body.lastPushedAt ?? null);
+          if (body.listError) setError(body.listError as string);
+          else if (body.lastError) setError(body.lastError as string);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
 
   const mine = store.calendars.filter((c) => c.ownerId === store.currentUserId);
 
@@ -72,6 +101,10 @@ export function CalDavConnect() {
   };
 
   const push = async () => {
+    if (!chosen) {
+      setError("Choose a calendar above first — that is where the events would go.");
+      return;
+    }
     setBusy("pushing");
     setError(null);
     setSent(null);
@@ -80,6 +113,7 @@ export function CalDavConnect() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not send.");
       setSent(body.sent as number);
+      setLastPushed(new Date().toISOString());
       if (body.error) setError(body.error as string);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send.");
@@ -94,6 +128,14 @@ export function CalDavConnect() {
     setChosen(null);
     setSent(null);
   };
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-1.5 text-[12px] text-ink-faint">
+        <Loader2 size={12} className="animate-spin" /> Looking for a connection…
+      </p>
+    );
+  }
 
   if (!calendars) {
     return (
@@ -151,7 +193,14 @@ export function CalDavConnect() {
 
   return (
     <div className="space-y-2">
-      <p className="text-[12px] font-medium text-ink-muted">Write my events into</p>
+      <p className="text-[12px] font-medium text-ink-muted">
+        {chosen ? "Writing my events into" : "Choose where to write your events"}
+      </p>
+      {!chosen && (
+        <p className="text-[12px] leading-relaxed text-brand">
+          Connected, but nothing is being sent yet — pick one of these.
+        </p>
+      )}
       <ul className="space-y-1">
         {calendars.map((calendar) => (
           <li key={calendar.href}>
@@ -207,11 +256,20 @@ export function CalDavConnect() {
               )}
               Send my events now
             </Button>
-            {sent !== null && (
+            {sent !== null ? (
               <span className="text-[12px] text-ink-faint">
                 {sent === 0 ? "Nothing to send." : `${sent} sent.`}
               </span>
-            )}
+            ) : lastPushed ? (
+              <span className="text-[12px] text-ink-faint">
+                Last sent {new Date(lastPushed).toLocaleString(undefined, {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            ) : null}
           </div>
         </>
       )}
