@@ -177,3 +177,61 @@ export async function deleteEvent(
     throw new Error(`The server answered ${response.status} when removing an event.`);
   }
 }
+
+
+/* ------------------------------------------------------------------ *
+ * Reading
+ * ------------------------------------------------------------------ */
+
+export interface RemoteObject {
+  href: string;
+  etag?: string;
+}
+
+/**
+ * What is in the far calendar, as hrefs and ETags.
+ *
+ * The ETag is the server's word for "this is the version you have". Listing
+ * them is cheap; fetching the bodies is not, so only the ones whose ETag we do
+ * not recognise are downloaded.
+ */
+export async function listObjects(
+  credentials: Credentials,
+  calendarHref: string,
+): Promise<RemoteObject[]> {
+  const response = await dav(calendarHref, credentials, {
+    method: "PROPFIND",
+    depth: "1",
+    headers: { "Content-Type": "application/xml; charset=utf-8" },
+    body: `<d:propfind xmlns:d="DAV:"><d:prop><d:getetag/><d:resourcetype/></d:prop></d:propfind>`,
+  });
+  if (!response.ok) {
+    throw new Error(`The server answered ${response.status} when listing the calendar.`);
+  }
+
+  const out: RemoteObject[] = [];
+  for (const block of (await response.text()).split(/<[^>]*response[^>]*>/i).slice(1)) {
+    // The collection itself comes back first; only files hold events.
+    if (/<[^>]*collection[^>]*\/>/i.test(block)) continue;
+    const href = block.match(/<[^>]*href[^>]*>([\s\S]*?)<\/[^>]*href>/i)?.[1]?.trim();
+    if (!href || !/\.ics$/i.test(href)) continue;
+    const etag = block.match(/<[^>]*getetag[^>]*>([\s\S]*?)<\/[^>]*getetag>/i)?.[1]?.trim();
+    out.push({ href: absolute(calendarHref, href), etag: etag?.replace(/^"|"$/g, "") });
+  }
+  return out;
+}
+
+/** The calendar file behind one of those hrefs. */
+export async function getObject(
+  credentials: Credentials,
+  href: string,
+): Promise<{ ics: string; etag?: string }> {
+  const response = await dav(href, credentials, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(`The server answered ${response.status} when reading an event.`);
+  }
+  return {
+    ics: await response.text(),
+    etag: response.headers.get("etag")?.replace(/^"|"$/g, "") ?? undefined,
+  };
+}

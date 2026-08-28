@@ -1,6 +1,16 @@
 {
   "crons": [
-    { "path": "/api/cron/sync-feeds", "schedule": "0 * * * *" },
-    { "path": "/api/cron/reminders", "schedule": "*/15 * * * *" }
+    {
+      "path": "/api/cron/sync-feeds",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/caldav",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }

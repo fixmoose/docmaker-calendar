@@ -57,7 +57,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
   const store = useStore();
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState<null | "push" | "connect">(null);
-  const [sent, setSent] = useState<number | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
@@ -116,12 +116,21 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
   const push = async () => {
     setBusy("push");
     setError(null);
-    setSent(null);
+    setSummary(null);
     try {
       const res = await fetch("/api/caldav/push", { method: "POST" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not send.");
-      setSent(body.sent as number);
+      setSummary(
+        [
+          body.added ? `${body.added} brought in` : null,
+          body.updated ? `${body.updated} updated` : null,
+          body.removed ? `${body.removed} removed here` : null,
+          body.sent ? `${body.sent} sent out` : null,
+        ]
+          .filter(Boolean)
+          .join(", ") || "Already in step.",
+      );
       if (body.error) setError(body.error as string);
       load();
     } catch (e) {
@@ -134,7 +143,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
   const disconnect = async () => {
     await fetch("/api/caldav/choose", { method: "DELETE" });
     setStatus({ connected: false });
-    setSent(null);
+    setSummary(null);
   };
 
   const feeds = store.feeds ?? [];
@@ -191,8 +200,8 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
 
           <p className="mt-1 pl-6 text-[12px] text-ink-muted">
             {status.calendarName
-              ? `Your calendar is written into “${status.calendarName}” there`
-              : "Connected, but not writing anywhere yet"}
+              ? `Kept in step with “${status.calendarName}” there, both ways, every few minutes`
+              : "Connected, but no calendar chosen yet"}
             {status.lastPushedAt ? ` · last sent ${when(status.lastPushedAt)}` : ""}
           </p>
 
@@ -268,11 +277,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
                     )}
                     Sync now
                   </Button>
-                  {sent !== null && (
-                    <span className="text-[12px] text-ink-faint">
-                      {sent === 0 ? "Nothing to send." : `${sent} sent.`}
-                    </span>
-                  )}
+                  {summary && <span className="text-[12px] text-ink-faint">{summary}</span>}
                 </div>
               </>
             )}
