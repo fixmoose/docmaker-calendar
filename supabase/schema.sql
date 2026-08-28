@@ -2262,11 +2262,14 @@ drop policy if exists cc_caldav_links_own on cc_caldav_links;
 create policy cc_caldav_links_own on cc_caldav_links for all
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
--- The one column nobody signed in may read, whatever they ask for. Postgres
--- checks column privileges before row policies, so this holds even for the
--- owner of the row — the secret is the server's business, not the browser's.
-revoke select (secret) on cc_caldav_links from authenticated;
-revoke update (secret) on cc_caldav_links from authenticated;
+-- Nobody signed in touches these tables at all. Revoking the column alone did
+-- nothing — a table-level SELECT privilege reads every column, and column
+-- grants only add to a role that lacks it — so a signed-in owner could read
+-- their own encrypted password straight back out.
+--
+-- Only the server routines that talk to the far end use these, and they hold
+-- the service role, which these grants do not apply to.
+revoke all on cc_caldav_links from anon, authenticated;
 
 -- What has been written to the far end, so a second push replaces an event
 -- rather than making another copy of it. The ETag is how the server tells us
@@ -2281,6 +2284,8 @@ create table if not exists cc_caldav_objects (
 );
 
 alter table cc_caldav_objects enable row level security;
+
+revoke all on cc_caldav_objects from anon, authenticated;
 
 drop policy if exists cc_caldav_objects_own on cc_caldav_objects;
 create policy cc_caldav_objects_own on cc_caldav_objects for all
