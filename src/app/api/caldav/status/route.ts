@@ -22,7 +22,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: link } = await admin
     .from("cc_caldav_links")
-    .select("base_url,username,secret,calendar_href,calendar_name,source_calendar_id,last_pushed_at,last_error")
+    .select("base_url,username,secret,calendar_href,calendar_name,source_calendar_id,include_shared,last_pushed_at,last_error")
     .eq("owner_id", user.id)
     .maybeSingle();
 
@@ -35,6 +35,7 @@ export async function GET() {
     calendarHref: (link.calendar_href as string) ?? null,
     calendarName: (link.calendar_name as string) ?? null,
     sourceCalendarId: (link.source_calendar_id as string) ?? null,
+    includeShared: link.include_shared !== false,
     lastPushedAt: (link.last_pushed_at as string) ?? null,
     lastError: (link.last_error as string) ?? null,
   };

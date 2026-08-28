@@ -22,7 +22,7 @@ export async function POST() {
   const admin = createAdminClient();
   const { data: link } = await admin
     .from("cc_caldav_links")
-    .select("id,base_url,username,secret,calendar_href,source_calendar_id")
+    .select("id,base_url,username,secret,calendar_href,source_calendar_id,include_shared")
     .eq("owner_id", user.id)
     .maybeSingle();
 
@@ -56,24 +56,57 @@ export async function POST() {
     );
   }
 
-  // Only what belongs to this person: never anything shared with them, which
-  // is somebody else's to put on their own server if they want it there.
+  /*
+   * What is on this person's calendar — which is not the same as what they
+   * own. An evening Ellen shared is on their calendar here, so a copy kept
+   * elsewhere that omits it says the evening is free when it is not.
+   *
+   * Busy blocks are excluded by construction: only events shared in full have
+   * a row here to read, and a masked one has nothing worth sending.
+   */
   const calendars = await admin
     .from("cc_calendars")
     .select("id")
     .eq("owner_id", user.id);
   const ownIds = (calendars.data ?? []).map((c) => c.id as string);
   const wanted = link.source_calendar_id ? [link.source_calendar_id as string] : ownIds;
-  if (!wanted.length) return NextResponse.json({ sent: 0 });
 
-  const { data: events } = await admin
-    .from("cc_events")
-    .select("id,title,notes,location,starts_at,ends_at,all_day,rrule,updated_at")
-    .in("calendar_id", wanted)
-    .is("deleted_at", null)
-    // A year back is enough history for a calendar somebody actually reads.
-    .gte("starts_at", new Date(Date.now() - 365 * 86400_000).toISOString())
-    .limit(500);
+  const since = new Date(Date.now() - 365 * 86400_000).toISOString();
+  const columns = "id,title,notes,location,starts_at,ends_at,all_day,rrule,updated_at";
+
+  const mine = wanted.length
+    ? await admin
+        .from("cc_events")
+        .select(columns)
+        .in("calendar_id", wanted)
+        .is("deleted_at", null)
+        .gte("starts_at", since)
+        .limit(500)
+    : { data: [] };
+
+  let shared: { data: unknown[] | null } = { data: [] };
+  if (link.include_shared) {
+    const { data: guest } = await admin
+      .from("cc_event_shares")
+      .select("event_id")
+      .eq("user_id", user.id);
+    const ids = (guest ?? []).map((g) => g.event_id as string);
+    if (ids.length) {
+      shared = await admin
+        .from("cc_events")
+        .select(columns)
+        .in("id", ids)
+        .is("deleted_at", null)
+        .gte("starts_at", since)
+        .limit(500);
+    }
+  }
+
+  const events = [
+    ...((mine.data ?? []) as Record<string, unknown>[]),
+    ...((shared.data ?? []) as Record<string, unknown>[]),
+  ];
+  if (!events.length) return NextResponse.json({ sent: 0 });
 
   const { data: already } = await admin
     .from("cc_caldav_objects")
@@ -84,7 +117,7 @@ export async function POST() {
   let sent = 0;
   const failures: string[] = [];
 
-  for (const event of events ?? []) {
+  for (const event of events) {
     const ics = eventToIcs({
       id: event.id as string,
       title: event.title as string,

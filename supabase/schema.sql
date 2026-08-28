@@ -2249,6 +2249,9 @@ create table if not exists cc_caldav_links (
   calendar_name  text,
   -- Which calendar here is sent over. Null means everything the owner owns.
   source_calendar_id uuid references cc_calendars (id) on delete set null,
+  -- Events other people shared with you appear on your calendar, so they
+  -- belong in the copy of it kept elsewhere. Only ones you may see in full.
+  include_shared boolean not null default true,
   last_pushed_at timestamptz,
   last_error     text,
   created_at     timestamptz not null default now()

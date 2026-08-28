@@ -9,10 +9,13 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const { href, name, sourceCalendarId } = (await request.json().catch(() => ({}))) as {
+  const { href, name, sourceCalendarId, includeShared } = (await request
+    .json()
+    .catch(() => ({}))) as {
     href?: string;
     name?: string;
     sourceCalendarId?: string | null;
+    includeShared?: boolean;
   };
   if (!href) return NextResponse.json({ error: "No calendar chosen." }, { status: 400 });
 
@@ -23,6 +26,7 @@ export async function POST(request: Request) {
       calendar_href: href,
       calendar_name: name ?? null,
       source_calendar_id: sourceCalendarId ?? null,
+      ...(includeShared === undefined ? {} : { include_shared: includeShared }),
     })
     .eq("owner_id", user.id);
 

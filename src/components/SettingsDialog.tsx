@@ -19,8 +19,7 @@ import { useSettings, type Settings } from "@/lib/settings";
 import { useStore } from "@/lib/store";
 import type { CalendarView } from "@/lib/types";
 import { AutoShareField } from "./AutoShareField";
-import { CalDavConnect } from "./CalDavConnect";
-import { ExternalCalendars } from "./ExternalCalendars";
+import { OtherCalendars } from "./OtherCalendars";
 import { InstallHint } from "./InstallHint";
 import { TOUR_SEEN_KEY } from "./PhoneTour";
 import { PushToggle } from "./PushToggle";
@@ -61,7 +60,14 @@ function Choice<T extends string | number | boolean>({
 }
 
 /** Per-device preferences: how the calendar looks and reads. */
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({
+  onClose,
+  onAddSubscription,
+}: {
+  onClose: () => void;
+  /** Opens the subscribe dialog — adding one belongs here, not only in the sidebar. */
+  onAddSubscription: () => void;
+}) {
   const settings = useSettings();
   const store = useStore();
   const sharedBusy = store.me.sharedBusy ?? true;
@@ -192,14 +198,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </Field>
         </Group>
 
-        <Group title="Other calendars" icon={CalendarSync}>
-          <Field label="Reading them in">
-            <ExternalCalendars />
-          </Field>
-
-          <Field label="Sending mine out">
-            <CalDavConnect />
-          </Field>
+        <Group title="Where this calendar lives" icon={CalendarSync}>
+          <OtherCalendars onAddSubscription={onAddSubscription} />
         </Group>
 
         <Group title="On your phone" icon={Smartphone}>

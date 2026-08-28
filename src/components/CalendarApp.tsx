@@ -912,7 +912,15 @@ export function CalendarApp() {
 
       {subscribing && <SubscribeDialog onClose={() => setSubscribing(false)} />}
 
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsDialog
+          onClose={() => setSettingsOpen(false)}
+          onAddSubscription={() => {
+            setSettingsOpen(false);
+            setSubscribing(true);
+          }}
+        />
+      )}
 
       {trashOpen && <TrashDialog onClose={() => setTrashOpen(false)} />}
 
