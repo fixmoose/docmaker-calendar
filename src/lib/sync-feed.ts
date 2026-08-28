@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normaliseFeedUrl, parseIcs } from "./ics";
+import { feedUrlProblem, normaliseFeedUrl, parseIcs } from "./ics";
 
 /**
  * Re-reads one subscribed calendar and mirrors it into cc_events.
@@ -28,6 +28,9 @@ export async function syncFeed(admin: SupabaseClient, feed: FeedRow) {
   const to = new Date(Date.now() + WINDOW_FORWARD_DAYS * 86400_000);
 
   try {
+    const problem = feedUrlProblem(feed.url);
+    if (problem) throw new Error(problem);
+
     const response = await fetch(normaliseFeedUrl(feed.url), {
       headers: { accept: "text/calendar, text/plain;q=0.9, */*;q=0.8" },
       redirect: "follow",
@@ -35,6 +38,15 @@ export async function syncFeed(admin: SupabaseClient, feed: FeedRow) {
     });
 
     if (!response.ok) {
+      // A bare status code tells somebody nothing about what to do next.
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(
+          "That calendar asked for a password. A subscription is fetched with nobody signed in, so it needs an address that works on its own — in Nextcloud, share the calendar by link and copy the subscription link it gives you. Google and Outlook call it the secret iCal address.",
+        );
+      }
+      if (response.status === 404) {
+        throw new Error("Nothing was there. The address may have been withdrawn or mistyped.");
+      }
       throw new Error(`The calendar URL returned ${response.status}.`);
     }
 

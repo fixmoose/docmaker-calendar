@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { Link2, RefreshCw, TriangleAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { feedUrlProblem } from "@/lib/ics";
 import { useStore } from "@/lib/store";
 import type { ColorKey } from "@/lib/types";
 import { Button, ColorPicker, Field, Modal, inputClass } from "./ui";
@@ -30,6 +31,14 @@ export function SubscribeDialog({ onClose }: { onClose: () => void }) {
 
   const add = async () => {
     if (!url.trim()) return;
+
+    // Said before the request rather than after it comes back refused.
+    const problem = feedUrlProblem(url);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+
     setBusy(true);
     setError(null);
     const result = await store.addFeed({

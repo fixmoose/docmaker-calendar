@@ -191,5 +191,35 @@ function toIcsStamp(date: Date) {
 
 /** Google and Outlook both hand out webcal:// links that are really https. */
 export function normaliseFeedUrl(url: string) {
-  return url.trim().replace(/^webcal:\/\//i, "https://");
+  const clean = url.trim().replace(/^webcal:\/\//i, "https://");
+  // Nextcloud hands out subscription links without it, and returns a directory
+  // listing rather than a calendar unless it is asked for the export.
+  if (/\/remote\.php\/dav\/public-calendars\/[^/?]+$/i.test(clean)) {
+    return `${clean}?export`;
+  }
+  return clean;
+}
+
+/**
+ * Why this address cannot be subscribed to, in words, or null if it looks
+ * fine. A calendar feed is fetched with nobody signed in, so anything that
+ * needs a password cannot be one however valid it is.
+ */
+export function feedUrlProblem(url: string): string | null {
+  const clean = normaliseFeedUrl(url);
+
+  if (!/^https?:\/\//i.test(clean)) {
+    return "That does not look like a web address. It should begin with https://";
+  }
+
+  // The DAV root, or a personal calendar path: both need a username and
+  // password, which a subscription has no way to supply.
+  if (/\/remote\.php\/dav\/?$/i.test(clean)) {
+    return "That is the address of your whole Nextcloud account, not of one calendar — and it needs your password, which a subscription cannot give it. In Nextcloud open Calendar, press the three dots beside the calendar you want, share it by link, then copy the subscription link it offers. That address ends in a long code and works without signing in.";
+  }
+  if (/\/remote\.php\/dav\/calendars\//i.test(clean)) {
+    return "That is your private Nextcloud calendar address, which asks for a password. Use the subscription link instead: in Calendar, the three dots beside the calendar, share by link, then copy the subscription link.";
+  }
+
+  return null;
 }
