@@ -484,7 +484,7 @@ export function Sidebar({
         ))}
 
         <SectionTitle
-          action={<AddButton label="Sync a third-party calendar" onClick={onSubscribe} />}
+          action={<AddButton label="Sync a third-party calendar — Outlook, Gmail, Nextcloud, iPhone, Zoho" onClick={onSubscribe} />}
         >
           Subscribed
         </SectionTitle>

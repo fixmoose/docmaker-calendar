@@ -339,7 +339,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
           </p>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {/*
            * "Sync" on the buttons because that is the word people came looking
            * for; the rows themselves say which way things actually travel, so
@@ -347,7 +347,13 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
            * way back here.
            */}
           <Button variant="outline" onClick={onAddSubscription}>
-            <Plus size={14} /> Sync a third-party calendar
+            <Plus size={14} />
+            <span className="text-left">
+              Sync a third-party calendar{" "}
+              <span className="font-normal opacity-70">
+                (Outlook, Gmail, Nextcloud, iPhone, Zoho…)
+              </span>
+            </span>
           </Button>
           {!status?.connected && (
             <Button variant="outline" onClick={() => setAdding(true)}>
