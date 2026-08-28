@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { feedUrlProblem, normaliseFeedUrl, parseIcs } from "./ics";
 
+/** Our own event ids are UUIDs; a foreign UID almost never is. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Re-reads one subscribed calendar and mirrors it into cc_events.
  *
@@ -57,7 +60,24 @@ export async function syncFeed(admin: SupabaseClient, feed: FeedRow) {
 
     const parsed = parseIcs(body, { from, to });
 
-    const rows = parsed.map((event) => ({
+    /*
+     * Do not import our own events back.
+     *
+     * Somebody who sends their calendar to Nextcloud and then subscribes to it
+     * gets every event twice: once as they made it, and once as it came home.
+     * Everything written out carries its own id as the UID, so anything coming
+     * back with an id we already have is a reflection rather than news.
+     */
+    const uids = parsed.map((e) => e.uid).filter((uid) => UUID.test(uid));
+    let ours = new Set<string>();
+    if (uids.length) {
+      const { data } = await admin.from("cc_events").select("id").in("id", uids);
+      ours = new Set((data ?? []).map((row) => row.id as string));
+    }
+
+    const incoming = parsed.filter((event) => !ours.has(event.uid));
+
+    const rows = incoming.map((event) => ({
       calendar_id: feed.calendar_id,
       feed_id: feed.id,
       external_uid: event.uid,
@@ -79,6 +99,8 @@ export async function syncFeed(admin: SupabaseClient, feed: FeedRow) {
     }
 
     // Anything no longer in the feed within the window has been cancelled.
+    // Reflections count as still present, or each pass would delete the copy
+    // it declined to make and then make it again.
     const keep = parsed.map((e) => e.uid);
     let removal = admin
       .from("cc_events")

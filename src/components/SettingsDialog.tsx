@@ -1,7 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import { Clock, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
+import {
+  Bell,
+  CalendarSync,
+  Clock,
+  Monitor,
+  Moon,
+  Palette,
+  RotateCcw,
+  Smartphone,
+  Sun,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { useIsMobile } from "@/lib/media";
 import { useSettings, type Settings } from "@/lib/settings";
@@ -63,7 +74,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     <Modal
       title="Settings"
       onClose={onClose}
-      width={480}
+      width={640}
+      autoFocus={false}
       footer={
         <>
           <Button variant="ghost" className="mr-auto" onClick={settings.reset}>
@@ -75,8 +87,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="space-y-4">
-        <Field label="Appearance">
+      <div className="space-y-5">
+        <Group title="How it looks" icon={Palette}>
+          <Field label="Appearance">
           <Choice<Settings["theme"]>
             value={settings.theme}
             onChange={(v) => settings.set("theme", v)}
@@ -88,7 +101,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        <Field label="Clock">
+          <Field label="Clock">
           <Choice<boolean>
             value={settings.hour12}
             onChange={(v) => settings.set("hour12", v)}
@@ -99,10 +112,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
           <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-faint">
             <Clock size={12} /> Times will read like {sample}
-          </p>
-        </Field>
+            </p>
+          </Field>
 
-        <Field label="Week starts on">
+          <Field label="Week starts on">
           <Choice<Settings["weekStartsOn"]>
             value={settings.weekStartsOn}
             onChange={(v) => settings.set("weekStartsOn", v)}
@@ -113,7 +126,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        <Field label="Open the calendar on">
+          <Field label="Open the calendar on">
           <Choice<CalendarView>
             value={settings.defaultView}
             onChange={(v) => settings.set("defaultView", v)}
@@ -126,7 +139,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        <Field label="Weekends">
+          <Field label="Weekends">
           <Choice<boolean>
             value={settings.highlightWeekends}
             onChange={(v) => settings.set("highlightWeekends", v)}
@@ -137,11 +150,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        <Field label="Always share what I create with">
-          <AutoShareField />
-        </Field>
+        </Group>
 
-        <Field label="When somebody shares an event with me, everyone else sees">
+        <Group title="Who sees what" icon={Users}>
+          <Field label="Always share what I create with">
+            <AutoShareField />
+          </Field>
+
+          <Field label="When somebody shares an event with me, everyone else sees">
           <Choice<boolean>
             value={sharedBusy}
             onChange={(v) => store.setSharedBusy(v)}
@@ -168,28 +184,62 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </p>
         </Field>
 
-        <Field label="Notifications on this device">
-          <PushToggle />
-        </Field>
+        </Group>
 
-        <Field label="Other calendars">
-          <ExternalCalendars />
-        </Field>
+        <Group title="Being told about things" icon={Bell}>
+          <Field label="Notifications on this device">
+            <PushToggle />
+          </Field>
+        </Group>
 
-        <Field label="Send my events to my own server">
-          <CalDavConnect />
-        </Field>
+        <Group title="Other calendars" icon={CalendarSync}>
+          <Field label="Reading them in">
+            <ExternalCalendars />
+          </Field>
 
-        <Field label="On your phone">
+          <Field label="Sending mine out">
+            <CalDavConnect />
+          </Field>
+        </Group>
+
+        <Group title="On your phone" icon={Smartphone}>
           <InstallHint />
           <ReplayTour />
-        </Field>
+        </Group>
 
-        <p className="text-[12px] leading-relaxed text-ink-faint">
-          These are kept on this device, so your phone and laptop can differ.
+        <p className="px-1 text-[12px] leading-relaxed text-ink-faint">
+          Appearance, clock and view are kept on this device, so your phone and
+          laptop can differ. Everything else follows your account.
         </p>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * One area of settings, boxed and titled.
+ *
+ * Everything used to run together as one column of grey labels, so finding the
+ * notification switch meant reading the whole page. A heading with a rule under
+ * it, and a surface behind each group, gives the eye somewhere to stop.
+ */
+function Group({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: typeof Sun;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-line bg-surface-2/50 p-4">
+      <h3 className="mb-3 flex items-center gap-2 border-b border-line pb-2 text-[13px] font-semibold tracking-tight text-ink">
+        <Icon size={15} className="text-brand" />
+        {title}
+      </h3>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
 

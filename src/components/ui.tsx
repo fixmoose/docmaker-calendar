@@ -209,7 +209,7 @@ export function Field({
 }) {
   return (
     <label className={clsx("block", className)}>
-      <span className="mb-1.5 block text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+      <span className="mb-1.5 block text-[12px] font-semibold tracking-tight text-ink-muted">
         {label}
       </span>
       {children}
@@ -339,12 +339,19 @@ export function Modal({
   children,
   footer,
   width = 460,
+  autoFocus = true,
 }: {
   title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
   width?: number;
+  /**
+   * Whether to put the cursor in the first field. Right for a dialog you came
+   * to in order to type something; wrong for a long page of settings, where it
+   * scrolls you past the top to whichever box happens to accept text.
+   */
+  autoFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -356,10 +363,12 @@ export function Modal({
       }
     };
     window.addEventListener("keydown", onKey);
-    // Focus the first real field — not the close button, which sits first in the DOM.
-    ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    // The first real field — not the close button, which sits first in the DOM.
+    if (autoFocus) {
+      ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    }
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, autoFocus]);
 
   return (
     <div
