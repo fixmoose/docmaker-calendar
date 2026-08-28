@@ -151,9 +151,16 @@ export async function putEvent(
     method: "PUT",
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      // Replace only our own copy: if somebody else changed it since, this
-      // fails rather than overwriting their version.
-      ...(etag ? { "If-Match": etag } : {}),
+      /*
+       * Replace only our own copy: if somebody else changed it since, this
+       * fails rather than overwriting their version.
+       *
+       * The quotes matter. An ETag is a quoted string in HTTP, and a server
+       * given a bare one matches it against nothing and answers 412 — which
+       * looked exactly like a conflict, so every write was refused as though
+       * somebody else had got there first.
+       */
+      ...(etag ? { "If-Match": /^["W]/.test(etag) ? etag : `"${etag}"` } : {}),
     },
     body: ics,
   });
