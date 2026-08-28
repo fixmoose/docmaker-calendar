@@ -266,7 +266,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
                     ) : (
                       <RefreshCw size={13} />
                     )}
-                    Send now
+                    Sync now
                   </Button>
                   {sent !== null && (
                     <span className="text-[12px] text-ink-faint">
@@ -281,9 +281,9 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
       )}
 
       {!feeds.length && !status?.connected && (
-        <p className="text-[13px] text-ink-muted">
-          This calendar lives only here. Connect it to Nextcloud, Google, Outlook
-          or anything else and it can live in both.
+        <p className="text-[13px] leading-relaxed text-ink-muted">
+          This calendar lives only here. Sync it with Google, Outlook, Nextcloud,
+          Zoho or anything else that keeps calendars, and it can live in both.
         </p>
       )}
 
@@ -291,7 +291,7 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
       {adding ? (
         <div className="space-y-2 rounded-xl border border-brand/40 bg-brand-soft/40 p-3">
           <p className="text-[12px] font-medium text-ink">
-            Write this calendar into a server of yours
+            Sync this calendar to a server of your own
           </p>
           <input
             value={baseUrl}
@@ -335,12 +335,18 @@ export function OtherCalendars({ onAddSubscription }: { onAddSubscription: () =>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
+          {/*
+           * "Sync" on the buttons because that is the word people came looking
+           * for; the rows themselves say which way things actually travel, so
+           * nobody is left believing a change made over there will find its
+           * way back here.
+           */}
           <Button variant="outline" onClick={onAddSubscription}>
-            <Plus size={14} /> Read one in
+            <Plus size={14} /> Sync a third-party calendar
           </Button>
           {!status?.connected && (
             <Button variant="outline" onClick={() => setAdding(true)}>
-              <Plus size={14} /> Write mine out
+              <Plus size={14} /> Sync mine to my own server
             </Button>
           )}
         </div>

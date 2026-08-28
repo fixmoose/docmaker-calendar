@@ -59,7 +59,7 @@ export function SubscribeDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="Subscribe to a calendar"
+      title="Sync a third-party calendar"
       onClose={onClose}
       width={540}
       footer={

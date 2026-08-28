@@ -484,7 +484,7 @@ export function Sidebar({
         ))}
 
         <SectionTitle
-          action={<AddButton label="Subscribe to a calendar" onClick={onSubscribe} />}
+          action={<AddButton label="Sync a third-party calendar" onClick={onSubscribe} />}
         >
           Subscribed
         </SectionTitle>
