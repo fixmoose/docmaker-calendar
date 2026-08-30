@@ -82,6 +82,24 @@ export function MonthView({
   const maxLanes = Math.max(1, Math.floor((rowHeight - HEADER_H - 4) / LANE_H));
 
   /*
+   * A phone's day cell is a third the width, and the same wall there would
+   * swallow the day either side of it.
+   */
+  const wallW = isMobile ? 16 : WALL_W;
+  /*
+   * The name is as large as the wall can hold and the row can show: three
+   * upright letters each take about their own size in height, and neither the
+   * frame's sides nor its ends may be pushed at. A window squeezed short
+   * therefore gets smaller letters rather than letters running past the
+   * frame, and it stops growing at the wall's own width so it cannot be wider
+   * than what it stands in.
+   */
+  const wallType = Math.max(
+    8,
+    Math.min(wallW - 2, Math.floor((rowHeight - 14) / 3.2)),
+  );
+
+  /*
    * A month reached by scrolling keeps the rows where the hand left them.
    * Arriving at one any other way — the arrows, Today, a link, the back
    * button — starts at that month's own grid, or the rows would snap about
@@ -377,9 +395,7 @@ export function MonthView({
                   className="pointer-events-none absolute inset-y-0 z-20 flex -translate-x-1/2 items-center justify-center border border-line-strong bg-surface-2"
                   style={{
                     left: `${(turnsOver * 100) / 7}%`,
-                    // A phone's day cell is a third the width, and the same
-                    // wall there would swallow the day either side of it.
-                    width: isMobile ? 16 : WALL_W,
+                    width: wallW,
                   }}
                 >
                   {/*
@@ -390,7 +406,10 @@ export function MonthView({
                    * black on a white calendar and white on a dark one, which
                    * a hard black would not be.
                    */}
-                  <span className="text-[30px] leading-none font-bold tracking-tighter text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]">
+                  <span
+                    className="leading-none font-bold tracking-tighter text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]"
+                    style={{ fontSize: wallType }}
+                  >
                     {format(days[turnsOver], "MMM")}
                   </span>
                 </div>
