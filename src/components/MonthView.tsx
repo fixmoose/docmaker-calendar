@@ -4,7 +4,6 @@ import clsx from "clsx";
 import {
   addDays,
   addHours,
-  addMonths,
   differenceInCalendarDays,
   format,
   isSameDay,
@@ -28,10 +27,10 @@ import type { ViewHandlers } from "./view-types";
 const LANE_H = 23;
 const HEADER_H = 26;
 
-/** About one notch of a mouse wheel — that much movement pages the month. */
+/** About one notch of a mouse wheel — that much movement moves a row. */
 const WHEEL_STEP = 30;
-/** The pause between paged months, so one long flick does not fly through the year. */
-const WHEEL_COOLDOWN = 320;
+/** The pause between rows, so one long flick does not run away with the year. */
+const WHEEL_COOLDOWN = 80;
 
 export function MonthView({
   date,
@@ -44,7 +43,17 @@ export function MonthView({
 }) {
   const { rescheduleEvent, canEditEvent } = useStore();
   const isMobile = useIsMobile();
-  const weeks = useMemo(() => monthMatrix(date), [date]);
+  const grid = useMemo(() => monthMatrix(date), [date]);
+  /**
+   * How far the six rows have been scrolled from the month's own grid, in
+   * weeks. Nought is the month as it is arrived at, and the wheel moves a row
+   * at a time from there.
+   */
+  const [rowShift, setRowShift] = useState(0);
+  const weeks = useMemo(
+    () => grid.map((week) => week.map((day) => addDays(day, rowShift * 7))),
+    [grid, rowShift],
+  );
   const labels = useMemo(
     () => weekDays(new Date()).map((d) => format(d, "EEE")),
     [],
@@ -70,18 +79,56 @@ export function MonthView({
 
   const maxLanes = Math.max(1, Math.floor((rowHeight - HEADER_H - 4) / LANE_H));
 
+  /*
+   * A month reached by scrolling keeps the rows where the hand left them.
+   * Arriving at one any other way — the arrows, Today, a link, the back
+   * button — starts at that month's own grid, or the rows would snap about
+   * under a wheel that had nothing to do with it.
+   */
+  const scrolledTo = useRef<number | null>(null);
+  useEffect(() => {
+    if (scrolledTo.current === date.getTime()) {
+      scrolledTo.current = null;
+      return;
+    }
+    setRowShift(0);
+  }, [date]);
+
   /**
-   * The wheel pages the month, the way the arrows do: down for the next one,
-   * up for the one before. A trackpad sends a stream of small deltas for a
-   * single flick, so movement is accumulated to a notch's worth and a short
-   * cooldown keeps a long gesture from running through the year. The listener
-   * is non-passive so the page behind cannot scroll or swipe back instead.
+   * The wheel moves one row: a week down, a week up. A whole month a notch is
+   * more than anybody means by turning a wheel, and it left nothing on screen
+   * to hold on to.
+   *
+   * The month named above the grid follows the rows rather than leading them:
+   * whichever month the middle of the six belongs to is the one being looked
+   * at, and the view does not move when the name changes.
+   *
+   * A trackpad sends a stream of small deltas for a single flick, so movement
+   * is gathered to a notch's worth and a short pause between rows keeps a long
+   * gesture from running away. The listener is non-passive, so the page behind
+   * cannot scroll or swipe back instead.
    */
   const onNavigate = handlers.onNavigate;
+  const top = weeks[0][0];
   const wheel = useRef({ accum: 0, last: 0, until: 0 });
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+
+    const moveRows = (direction: 1 | -1) => {
+      const nextTop = addDays(top, direction * 7);
+      const middle = addDays(nextTop, 21);
+      if (isSameMonth(middle, date)) {
+        setRowShift((shift) => shift + direction);
+        return;
+      }
+      const month = startOfMonth(middle);
+      scrolledTo.current = month.getTime();
+      setRowShift(
+        Math.round(differenceInCalendarDays(nextTop, monthMatrix(month)[0][0]) / 7),
+      );
+      onNavigate(month, "month");
+    };
 
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) return; // a zoom gesture, not navigation
@@ -96,12 +143,12 @@ export function MonthView({
       const direction = w.accum > 0 ? 1 : -1;
       w.accum = 0;
       w.until = now + WHEEL_COOLDOWN;
-      onNavigate(addMonths(startOfMonth(date), direction), "month");
+      moveRows(direction);
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [date, onNavigate]);
+  }, [date, top, onNavigate]);
 
   /** Pointer-drag an event onto another day. */
   const startDrag = (e: React.PointerEvent, event: CalendarEvent) => {
@@ -199,7 +246,7 @@ export function MonthView({
                         : handlers.onSelectSlot(startOfDay(day), endOfDayOf(day), true)
                     }
                     onDoubleClick={() => handlers.onNavigate(day, "day")}
-                    onContextMenu={(e) => handlers.onSlotMenu(e, day, false)}
+                    onContextMenu={(e) => handlers.onSlotMenu(e, day, true)}
                     onDragEnter={(e) => {
                       if (!dragHasFiles(e)) return;
                       e.preventDefault();
