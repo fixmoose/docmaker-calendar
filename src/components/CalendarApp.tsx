@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { colorVar, COLOR_KEYS, COLORS } from "@/lib/colors";
-import { timeLabel, weekDays } from "@/lib/date";
+import { weekDays } from "@/lib/date";
 import { uploadAttachment } from "@/lib/db";
 import { MAX_FILE_BYTES, formatBytes, titleFromFileName } from "@/lib/files";
 import { useIsMobile } from "@/lib/media";
@@ -460,14 +460,22 @@ export function CalendarApp() {
   const slotMenu = useCallback(
     (e: React.MouseEvent, at: Date, allDay: boolean) => {
       e.preventDefault();
+      /*
+       * The menu names no hour. It read "New event at 12 AM" over a month
+       * cell, which is not an offer anybody wants and reads as a mistake —
+       * the day was picked, not midnight. The editor asks for the time, and
+       * that is where it belongs.
+       *
+       * Where a day was picked rather than a time — a month cell, or the
+       * all-day strip — a timed event starts at 9am, as one made from the
+       * button does.
+       */
+      const start = allDay ? addHours(startOfDay(at), 9) : at;
       const items: MenuItem[] = [
         {
-          label: allDay ? "New all-day event" : `New event at ${timeLabel(at)}`,
+          label: "New event",
           icon: <CalendarPlus size={13} />,
-          onSelect: () =>
-            allDay
-              ? openEventDialog(startOfDay(at), startOfDay(at), true)
-              : openEventDialog(at, addHours(at, 1), false),
+          onSelect: () => openEventDialog(start, addHours(start, 1), false),
         },
         {
           label: "New all-day event",
