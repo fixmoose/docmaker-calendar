@@ -390,7 +390,7 @@ export function MonthView({
                    * black on a white calendar and white on a dark one, which
                    * a hard black would not be.
                    */}
-                  <span className="text-[15px] leading-[1.1] font-bold tracking-[0.02em] text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]">
+                  <span className="text-[30px] leading-none font-bold tracking-tighter text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]">
                     {format(days[turnsOver], "MMM")}
                   </span>
                 </div>
