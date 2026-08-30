@@ -26,6 +26,8 @@ import type { ViewHandlers } from "./view-types";
 
 const LANE_H = 23;
 const HEADER_H = 26;
+/** The band standing where one month turns into the next, in pixels. */
+const WALL_W = 30;
 
 /** About one notch of a mouse wheel — that much movement moves a row. */
 const WHEEL_STEP = 30;
@@ -228,6 +230,30 @@ export function MonthView({
           );
           const opensRow = days[0].getDate() === 1;
 
+          /*
+           * The wall stands in the row rather than over the top of it. A pill
+           * reaching the turn of the month stops short of it, one beginning
+           * there begins after it, and one running across is drawn as two —
+           * which is what it is: some days in August and some in September.
+           */
+          const pieces = shown.flatMap((seg) => {
+            const from = seg.col;
+            const to = seg.col + seg.span;
+            const across = turnsOver > from && turnsOver < to;
+            const spans: { from: number; to: number; left: boolean; right: boolean }[] = across
+              ? [
+                  { from, to: turnsOver, left: seg.continuesLeft, right: true },
+                  { from: turnsOver, to, left: true, right: seg.continuesRight },
+                ]
+              : [{ from, to, left: seg.continuesLeft, right: seg.continuesRight }];
+
+            return spans.map((piece) => {
+              const clipStart = turnsOver === piece.from ? WALL_W / 2 : 0;
+              const clipEnd = turnsOver === piece.to ? WALL_W / 2 : 0;
+              return { seg, ...piece, clipStart, clipEnd };
+            });
+          });
+
           return (
             <div
               key={weekIndex}
@@ -348,8 +374,13 @@ export function MonthView({
 
               {turnsOver > 0 && (
                 <div
-                  className="pointer-events-none absolute inset-y-0 z-20 flex w-[30px] -translate-x-1/2 items-center justify-center border-x border-line-strong bg-surface-2"
-                  style={{ left: `${(turnsOver * 100) / 7}%` }}
+                  className="pointer-events-none absolute inset-y-0 z-20 flex -translate-x-1/2 items-center justify-center border-x border-line-strong bg-surface-2"
+                  style={{
+                    left: `${(turnsOver * 100) / 7}%`,
+                    // A phone's day cell is a third the width, and the same
+                    // wall there would swallow the day either side of it.
+                    width: isMobile ? 16 : WALL_W,
+                  }}
                 >
                   {/*
                    * Upright letters stacked one on the next, not a word turned
@@ -382,22 +413,22 @@ export function MonthView({
                 )}
                 style={{ top: HEADER_H }}
               >
-                {shown.map((seg) => (
+                {pieces.map(({ seg, from, to, left, right, clipStart, clipEnd }) => (
                   <div
-                    key={seg.event.id}
+                    key={`${seg.event.id}:${from}`}
                     className="pointer-events-auto absolute px-[3px]"
                     style={{
-                      left: `${(seg.col / 7) * 100}%`,
-                      width: `${(seg.span / 7) * 100}%`,
+                      left: `calc(${(from / 7) * 100}% + ${clipStart}px)`,
+                      width: `calc(${((to - from) / 7) * 100}% - ${clipStart + clipEnd}px)`,
                       top: seg.lane * LANE_H,
                       opacity: drag?.id === seg.event.id ? 0.45 : 1,
                     }}
                   >
                     <EventPill
                       event={seg.event}
-                      banner={seg.span > 1 || seg.event.allDay}
-                      continuesLeft={seg.continuesLeft}
-                      continuesRight={seg.continuesRight}
+                      banner={to - from > 1 || seg.event.allDay}
+                      continuesLeft={left}
+                      continuesRight={right}
                       selected={handlers.selectedId === seg.event.id}
                       onDragStart={(e) => startDrag(e, seg.event)}
                       onOpen={(e) => {
