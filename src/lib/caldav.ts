@@ -155,12 +155,10 @@ export function etagValue(raw: string | null | undefined) {
 
 export async function putEvent(
   credentials: Credentials,
-  calendarHref: string,
-  fileName: string,
+  href: string,
   ics: string,
   etag?: string,
 ): Promise<{ etag?: string; href: string }> {
-  const href = `${calendarHref.replace(/\/+$/, "")}/${fileName}`;
   const response = await dav(href, credentials, {
     method: "PUT",
     headers: {

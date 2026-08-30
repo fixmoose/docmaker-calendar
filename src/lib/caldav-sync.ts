@@ -348,9 +348,20 @@ export async function push(admin: SupabaseClient, link: Link) {
 
   const { data: known } = await admin
     .from("cc_caldav_objects")
-    .select("event_id,etag")
+    .select("event_id,etag,href")
     .eq("link_id", link.id);
   const etags = new Map((known ?? []).map((o) => [o.event_id as string, o.etag as string]));
+  /*
+   * Where each event already lives over there.
+   *
+   * An event made at the far end is kept in a file of that end's naming.
+   * Writing it back to one of ours left the calendar holding two files for
+   * one event, and the one we had stopped answering to any event here — so
+   * the next read took it for something new and imported it again, every five
+   * minutes, for as long as it existed.
+   */
+  const hrefs = new Map((known ?? []).map((o) => [o.event_id as string, o.href as string]));
+  const collection = link.calendar_href.replace(/\/+$/, "");
 
   let sent = 0;
   let failed = 0;
@@ -371,7 +382,12 @@ export async function push(admin: SupabaseClient, link: Link) {
     });
 
     try {
-      const result = await putEvent(credentials, link.calendar_href, `${id}.ics`, ics, etags.get(id));
+      const result = await putEvent(
+        credentials,
+        hrefs.get(id) ?? `${collection}/${id}.ics`,
+        ics,
+        etags.get(id),
+      );
       await admin.from("cc_caldav_objects").upsert(
         {
           link_id: link.id,
