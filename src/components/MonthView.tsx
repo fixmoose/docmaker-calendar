@@ -101,9 +101,14 @@ export function MonthView({
 
   /*
    * A month reached by scrolling keeps the rows where the hand left them.
-   * Arriving at one any other way — the arrows, Today, a link, the back
-   * button — starts at that month's own grid, or the rows would snap about
-   * under a wheel that had nothing to do with it.
+   * Arriving at one any other way — the arrows, a link, the back button —
+   * starts at that month's own grid, or the rows would snap about under a
+   * wheel that had nothing to do with it.
+   *
+   * Today is the exception. Asking for today and being shown it on the last
+   * row but one is an answer about the past: what is wanted is the week one
+   * is in and the weeks to come. So today's row is put second, a week of
+   * what has been above it and four of what is ahead below.
    */
   const scrolledTo = useRef<number | null>(null);
   useEffect(() => {
@@ -111,8 +116,13 @@ export function MonthView({
       scrolledTo.current = null;
       return;
     }
-    setRowShift(0);
-  }, [date]);
+    if (!isToday(date)) {
+      setRowShift(0);
+      return;
+    }
+    const row = grid.findIndex((week) => week.some((day) => isSameDay(day, date)));
+    setRowShift(row < 0 ? 0 : row - 1);
+  }, [date, grid]);
 
   /**
    * The wheel moves one row: a week down, a week up. A whole month a notch is
