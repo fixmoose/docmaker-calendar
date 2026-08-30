@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { colorVar } from "@/lib/colors";
 import { isPast, isSpent, outstanding, useNow } from "@/lib/past";
 import { timeLabel } from "@/lib/date";
+import { isHoliday } from "@/lib/holidays";
 import { useStore } from "@/lib/store";
 import type { CalendarEvent, ColorKey } from "@/lib/types";
 import { AttachmentBadge } from "./Attachments";
@@ -73,8 +74,10 @@ export function EventPill({
       title={`${event.title} — ${label}`}
       className={clsx(
         "flex h-[21px] w-full items-center gap-1.5 overflow-hidden px-1.5 text-[12px] leading-none transition select-none",
-        // Already happened: recede, but stay legible and stay itself.
-        spent && "opacity-55",
+        // Already happened: recede, but stay legible and stay itself. A
+        // national day recedes from the start — it is background, not a
+        // commitment.
+        spent ? "opacity-55" : isHoliday(event) && "opacity-70",
         event.importance === "urgent" && !masked && "ring-1 ring-[#d1443c]/40",
         masked
           ? "cc-busy border border-dashed font-medium italic"

@@ -17,6 +17,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Paperclip } from "lucide-react";
 import { colorVar } from "@/lib/colors";
 import { layoutWeek, monthMatrix, occursOn, weekDays } from "@/lib/date";
+import { isHoliday } from "@/lib/holidays";
 import { useIsMobile } from "@/lib/media";
 import { dragHasFiles, filesFromDrag } from "@/lib/files";
 import { useStore } from "@/lib/store";
@@ -26,6 +27,8 @@ import type { ViewHandlers } from "./view-types";
 
 const LANE_H = 23;
 const HEADER_H = 26;
+/** One line of a national day, along the floor of the cell. */
+const HOLIDAY_H = 15;
 /** The band standing where one month turns into the next, in pixels. */
 const WALL_W = 30;
 
@@ -78,6 +81,17 @@ export function MonthView({
     [],
   );
 
+  /*
+   * A national day is not an appointment. It belongs to the box rather than
+   * to the list of things happening in it, so it is set along the floor of the
+   * cell and left out of the packing above — where it would otherwise take the
+   * first lane and push the day's actual events down.
+   */
+  const [plain, holidays] = useMemo(
+    () => [events.filter((e) => !isHoliday(e)), events.filter(isHoliday)],
+    [events],
+  );
+
   const [rowHeight, setRowHeight] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -96,7 +110,11 @@ export function MonthView({
     return () => ro.disconnect();
   }, [weeks.length]);
 
-  const maxLanes = Math.max(1, Math.floor((rowHeight - HEADER_H - 4) / LANE_H));
+  const lanesIn = (holidayLines: number) =>
+    Math.max(
+      1,
+      Math.floor((rowHeight - HEADER_H - 4 - holidayLines * HOLIDAY_H) / LANE_H),
+    );
 
   /*
    * A phone's day cell is a third the width, and the same wall there would
@@ -228,7 +246,10 @@ export function MonthView({
 
       <div ref={gridRef} className="flex min-h-0 flex-1 flex-col">
         {weeks.map((days, weekIndex) => {
-          const { segments } = layoutWeek(events, days);
+          const { segments } = layoutWeek(plain, days);
+          const onDay = days.map((day) => holidays.filter((h) => occursOn(h, day)));
+          // The whole row gives up the same floor space, so its lanes stay level.
+          const maxLanes = lanesIn(Math.max(...onDay.map((list) => list.length)));
           const shown = segments.filter((s) => s.lane < maxLanes);
           const hidden = segments.filter((s) => s.lane >= maxLanes);
 
@@ -277,7 +298,7 @@ export function MonthView({
               key={weekIndex}
               className="relative grid min-h-0 flex-1 grid-cols-7"
             >
-              {days.map((day) => {
+              {days.map((day, dayIndex) => {
                 const inMonth = isSameMonth(day, date);
                 const today = isToday(day);
                 const overflow = hidden.filter(
@@ -371,21 +392,35 @@ export function MonthView({
                     </div>
 
                     {isMobile ? (
-                      <MonthDots events={events} day={day} />
+                      <MonthDots events={plain} day={day} />
                     ) : null}
 
-                    {!isMobile && overflow > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlers.onNavigate(day, "day");
-                        }}
-                        className="absolute right-1.5 bottom-1 left-1.5 truncate rounded px-1 text-left text-[11px] font-medium text-ink-muted hover:bg-surface-2 hover:text-brand"
-                      >
-                        +{overflow} more
-                      </button>
-                    )}
+                    <div className="absolute right-1.5 bottom-1 left-1.5 flex flex-col">
+                      {!isMobile && overflow > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlers.onNavigate(day, "day");
+                          }}
+                          className="truncate rounded px-1 text-left text-[11px] font-medium text-ink-muted hover:bg-surface-2 hover:text-brand"
+                        >
+                          +{overflow} more
+                        </button>
+                      )}
+                      {onDay[dayIndex].map((holiday) => (
+                        <span
+                          key={holiday.id}
+                          title={holiday.title}
+                          onContextMenu={(e) => handlers.onEventMenu(e, holiday)}
+                          // Said quietly: it is the day's name, not something
+                          // anybody has to do.
+                          className="truncate px-1 text-[11px] leading-[15px] font-medium text-ink-muted opacity-70"
+                        >
+                          {holiday.title}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 );
               })}

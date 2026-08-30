@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { colorVar } from "@/lib/colors";
 import { occursOn, rangeLabel } from "@/lib/date";
 import { useIsSpent } from "@/lib/past";
+import { isHoliday } from "@/lib/holidays";
 import { useStore } from "@/lib/store";
 import type { CalendarEvent } from "@/lib/types";
 import { AttachmentBadge } from "./Attachments";
@@ -45,7 +46,8 @@ function Item({
       className={clsx(
         "group w-full rounded-xl border text-left transition",
         mobile ? "px-4 py-3.5" : "px-3 py-2.5",
-        spent && "opacity-55",
+        // A national day is background, not a commitment.
+        spent ? "opacity-55" : isHoliday(event) && "opacity-70",
         masked
           ? "cc-busy border-dashed"
           : "cc-tint-border border-line bg-surface hover:border-[var(--c)] hover:shadow-[var(--shadow-sm)]",
