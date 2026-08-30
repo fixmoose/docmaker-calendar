@@ -90,9 +90,26 @@ export async function pull(admin: SupabaseClient, link: Link) {
 
   const { data: known } = await admin
     .from("cc_caldav_objects")
-    .select("event_id,href,etag")
+    .select("event_id,href,etag,pushed_at")
     .eq("link_id", link.id);
   const byHref = new Map((known ?? []).map((o) => [o.href as string, o]));
+  const sentAt = new Map(
+    (known ?? []).map((o) => [o.event_id as string, o.pushed_at as string | null]),
+  );
+
+  /**
+   * Whether ours has been edited since it was last written out.
+   *
+   * If it has, the far end is holding an older version, and applying it would
+   * undo the edit — which is how an appointment renamed and moved here came
+   * back a few minutes later as it had been, announced as somebody else's
+   * doing. The push pass runs straight after this one and sends ours instead.
+   */
+  const editedSincePush = (updatedAt: string | null | undefined, eventId: string) => {
+    const sent = sentAt.get(eventId);
+    if (!sent || !updatedAt) return false;
+    return new Date(updatedAt).getTime() > new Date(sent).getTime();
+  };
 
   /*
    * Which of these are ours, told by asking rather than by the shape of the
@@ -158,11 +175,15 @@ export async function pull(admin: SupabaseClient, link: Link) {
        */
       const { data: current } = await admin
         .from("cc_events")
-        .select("title,notes,location,starts_at,ends_at,all_day")
+        .select("title,notes,location,starts_at,ends_at,all_day,updated_at")
         .eq("id", event.uid)
         .maybeSingle();
 
-      if (current && !sameEvent(current, { ...row, all_day: event.allDay })) {
+      if (
+        current
+        && !sameEvent(current, row)
+        && !editedSincePush(current.updated_at as string | null, event.uid)
+      ) {
         await admin.from("cc_events").update(row).eq("id", event.uid);
         updated += 1;
       }
@@ -172,8 +193,25 @@ export async function pull(admin: SupabaseClient, link: Link) {
       // of our own, remembered by href so the next pass recognises it.
       const existing = seen?.event_id as string | undefined;
       if (existing) {
-        await admin.from("cc_events").update(row).eq("id", existing);
-        updated += 1;
+        /*
+         * Made over there, kept here: applied on the same terms as one of
+         * ours. Only what differs is written, and never over an edit made
+         * here since the event was last sent out.
+         */
+        const { data: current } = await admin
+          .from("cc_events")
+          .select("title,notes,location,starts_at,ends_at,all_day,updated_at")
+          .eq("id", existing)
+          .maybeSingle();
+
+        if (
+          current
+          && !sameEvent(current, row)
+          && !editedSincePush(current.updated_at as string | null, existing)
+        ) {
+          await admin.from("cc_events").update(row).eq("id", existing);
+          updated += 1;
+        }
       } else {
         const id = crypto.randomUUID();
         const { error } = await admin.from("cc_events").insert({

@@ -139,6 +139,20 @@ export async function listCalendars(credentials: Credentials): Promise<RemoteCal
 }
 
 /** Puts one event on the far calendar, replacing our previous copy of it. */
+/**
+ * One shape for an ETag, wherever it is kept or compared.
+ *
+ * HTTP quotes them and a weak one carries a W/ in front. Listing and reading
+ * unquoted theirs while a write kept the header exactly as it arrived, so the
+ * tag recorded after sending an event never equalled the tag read back on the
+ * next pass. Every event then looked changed at the far end, and the copy over
+ * there — older than the one just edited here — was applied on top of it.
+ */
+export function etagValue(raw: string | null | undefined) {
+  if (!raw) return undefined;
+  return raw.trim().replace(/^W\//i, "").replace(/^"|"$/g, "") || undefined;
+}
+
 export async function putEvent(
   credentials: Credentials,
   calendarHref: string,
@@ -171,7 +185,7 @@ export async function putEvent(
   if (!response.ok && response.status !== 204) {
     throw new Error(`The server answered ${response.status} when saving an event.`);
   }
-  return { etag: response.headers.get("etag") ?? undefined, href };
+  return { etag: etagValue(response.headers.get("etag")), href };
 }
 
 export async function deleteEvent(
@@ -223,7 +237,7 @@ export async function listObjects(
     const href = block.match(/<[^>]*href[^>]*>([\s\S]*?)<\/[^>]*href>/i)?.[1]?.trim();
     if (!href || !/\.ics$/i.test(href)) continue;
     const etag = block.match(/<[^>]*getetag[^>]*>([\s\S]*?)<\/[^>]*getetag>/i)?.[1]?.trim();
-    out.push({ href: absolute(calendarHref, href), etag: etag?.replace(/^"|"$/g, "") });
+    out.push({ href: absolute(calendarHref, href), etag: etagValue(etag) });
   }
   return out;
 }
@@ -239,6 +253,6 @@ export async function getObject(
   }
   return {
     ics: await response.text(),
-    etag: response.headers.get("etag")?.replace(/^"|"$/g, "") ?? undefined,
+    etag: etagValue(response.headers.get("etag")),
   };
 }
