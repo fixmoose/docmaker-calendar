@@ -2310,3 +2310,37 @@ create policy cc_caldav_objects_own on cc_caldav_objects for all
       where l.id = link_id and l.owner_id = auth.uid()
     )
   );
+
+-- Where an event lived on the far server, kept after the event itself is
+-- gone. Emptying the trash removes the row above with it, and the file over
+-- there would then answer to nothing here — so the next read would take it
+-- for a new event and bring it back, which is the one thing a deletion must
+-- never do. The sync empties this by removing what it names.
+create table if not exists cc_caldav_deletions (
+  id         uuid primary key default gen_random_uuid(),
+  link_id    uuid not null references cc_caldav_links (id) on delete cascade,
+  href       text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table cc_caldav_deletions enable row level security;
+
+revoke all on cc_caldav_deletions from anon, authenticated;
+
+create or replace function cc_remember_caldav_deletion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into cc_caldav_deletions (link_id, href)
+  select link_id, href from cc_caldav_objects where event_id = old.id;
+  return old;
+end;
+$$;
+
+drop trigger if exists cc_events_caldav_deletion on cc_events;
+create trigger cc_events_caldav_deletion
+  before delete on cc_events
+  for each row execute function cc_remember_caldav_deletion();

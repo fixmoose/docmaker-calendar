@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getObject, listObjects, putEvent, type Credentials } from "./caldav";
+import { deleteEvent, getObject, listObjects, putEvent, type Credentials } from "./caldav";
 import { eventToIcs, parseIcs } from "./ics";
 import { decryptSecret } from "./secrets";
 
@@ -404,7 +404,59 @@ export async function push(admin: SupabaseClient, link: Link) {
     }
   }
 
-  return { sent, failed };
+  /*
+   * A deletion travels the same as anything else. Removing an event here and
+   * finding it still on the phone tomorrow is the same failure as an edit that
+   * comes back: one calendar in two places, or nothing worth having.
+   */
+  let removedThere = 0;
+
+  // In the trash here. The note of where it lived goes with it, so restoring
+  // it later writes it out afresh rather than editing a file that is gone.
+  const mapped = [...hrefs.keys()];
+  if (mapped.length) {
+    const { data: binned } = await admin
+      .from("cc_events")
+      .select("id")
+      .in("id", mapped)
+      .not("deleted_at", "is", null);
+
+    for (const row of binned ?? []) {
+      const id = row.id as string;
+      const href = hrefs.get(id);
+      if (!href) continue;
+      try {
+        await deleteEvent(credentials, href);
+        await admin
+          .from("cc_caldav_objects")
+          .delete()
+          .eq("link_id", link.id)
+          .eq("event_id", id);
+        removedThere += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+  }
+
+  // Emptied from the trash: the event is gone and its address is all that is
+  // left to go on. Anything that fails to be removed stays for the next pass.
+  const { data: emptied } = await admin
+    .from("cc_caldav_deletions")
+    .select("id,href")
+    .eq("link_id", link.id);
+
+  for (const row of emptied ?? []) {
+    try {
+      await deleteEvent(credentials, row.href as string);
+      await admin.from("cc_caldav_deletions").delete().eq("id", row.id as string);
+      removedThere += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return { sent, failed, removedThere };
 }
 
 /**
