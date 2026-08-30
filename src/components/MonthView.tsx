@@ -45,17 +45,34 @@ export function MonthView({
 }) {
   const { rescheduleEvent, canEditEvent } = useStore();
   const isMobile = useIsMobile();
-  const grid = useMemo(() => monthMatrix(date), [date]);
   /**
-   * How far the six rows have been scrolled from the month's own grid, in
-   * weeks. Nought is the month as it is arrived at, and the wheel moves a row
-   * at a time from there.
+   * Where the six rows start when a month is simply opened.
+   *
+   * Its own grid, except for today: being shown today on the last row but one
+   * is an answer about the past, when what is wanted is the week one is in and
+   * the weeks to come. Today's row is put second — a week of what has been
+   * above it, four of what is ahead below.
    */
-  const [rowShift, setRowShift] = useState(0);
-  const weeks = useMemo(
-    () => grid.map((week) => week.map((day) => addDays(day, rowShift * 7))),
-    [grid, rowShift],
-  );
+  const opensAt = useMemo(() => {
+    const grid = monthMatrix(date);
+    if (!isToday(date)) return grid[0][0];
+    const row = grid.findIndex((week) => week.some((day) => isSameDay(day, date)));
+    return addDays(grid[0][0], (row < 0 ? 0 : row - 1) * 7);
+  }, [date]);
+
+  /**
+   * Where the wheel has put them since, which holds only for the month it was
+   * left in. Any other way into a month — the arrows, Today, a link, the back
+   * button — no longer answers to it, and the month opens where it should.
+   */
+  const [scrolled, setScrolled] = useState<{ month: number; top: number } | null>(null);
+  const topTime = scrolled?.month === date.getTime() ? scrolled.top : opensAt.getTime();
+  const weeks = useMemo(() => {
+    const start = new Date(topTime);
+    return Array.from({ length: 6 }, (_, week) =>
+      Array.from({ length: 7 }, (_, day) => addDays(start, week * 7 + day)),
+    );
+  }, [topTime]);
   const labels = useMemo(
     () => weekDays(new Date()).map((d) => format(d, "EEE")),
     [],
@@ -99,31 +116,6 @@ export function MonthView({
     Math.min(wallW - 2, Math.floor((rowHeight - 14) / 3.2)),
   );
 
-  /*
-   * A month reached by scrolling keeps the rows where the hand left them.
-   * Arriving at one any other way — the arrows, a link, the back button —
-   * starts at that month's own grid, or the rows would snap about under a
-   * wheel that had nothing to do with it.
-   *
-   * Today is the exception. Asking for today and being shown it on the last
-   * row but one is an answer about the past: what is wanted is the week one
-   * is in and the weeks to come. So today's row is put second, a week of
-   * what has been above it and four of what is ahead below.
-   */
-  const scrolledTo = useRef<number | null>(null);
-  useEffect(() => {
-    if (scrolledTo.current === date.getTime()) {
-      scrolledTo.current = null;
-      return;
-    }
-    if (!isToday(date)) {
-      setRowShift(0);
-      return;
-    }
-    const row = grid.findIndex((week) => week.some((day) => isSameDay(day, date)));
-    setRowShift(row < 0 ? 0 : row - 1);
-  }, [date, grid]);
-
   /**
    * The wheel moves one row: a week down, a week up. A whole month a notch is
    * more than anybody means by turning a wheel, and it left nothing on screen
@@ -147,16 +139,14 @@ export function MonthView({
 
     const moveRows = (direction: 1 | -1) => {
       const nextTop = addDays(top, direction * 7);
-      const middle = addDays(nextTop, 21);
-      if (isSameMonth(middle, date)) {
-        setRowShift((shift) => shift + direction);
+      // Whichever month the middle of the six belongs to is the one being
+      // looked at, so the name follows the rows rather than leading them.
+      const month = startOfMonth(addDays(nextTop, 21));
+      if (isSameMonth(month, date)) {
+        setScrolled({ month: date.getTime(), top: nextTop.getTime() });
         return;
       }
-      const month = startOfMonth(middle);
-      scrolledTo.current = month.getTime();
-      setRowShift(
-        Math.round(differenceInCalendarDays(nextTop, monthMatrix(month)[0][0]) / 7),
-      );
+      setScrolled({ month: month.getTime(), top: nextTop.getTime() });
       onNavigate(month, "month");
     };
 
