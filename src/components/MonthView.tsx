@@ -374,7 +374,7 @@ export function MonthView({
 
               {turnsOver > 0 && (
                 <div
-                  className="pointer-events-none absolute inset-y-0 z-20 flex -translate-x-1/2 items-center justify-center border-x border-line-strong bg-surface-2"
+                  className="pointer-events-none absolute inset-y-0 z-20 flex -translate-x-1/2 items-center justify-center border border-line-strong bg-surface-2"
                   style={{
                     left: `${(turnsOver * 100) / 7}%`,
                     // A phone's day cell is a third the width, and the same
@@ -390,7 +390,7 @@ export function MonthView({
                    * black on a white calendar and white on a dark one, which
                    * a hard black would not be.
                    */}
-                  <span className="text-[11px] leading-[1.15] font-bold tracking-[0.04em] text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]">
+                  <span className="text-[15px] leading-[1.1] font-bold tracking-[0.02em] text-ink uppercase [text-orientation:upright] [writing-mode:vertical-rl]">
                     {format(days[turnsOver], "MMM")}
                   </span>
                 </div>
@@ -398,7 +398,7 @@ export function MonthView({
 
               {opensRow && (
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-0 items-center gap-1.5 pr-2">
-                  <span className="rounded-r-sm border-y border-r border-line-strong bg-surface-2 px-1.5 py-[3px] text-[10px] font-bold tracking-[0.08em] text-ink uppercase">
+                  <span className="rounded-r-sm border-y border-r border-line-strong bg-surface-2 px-1.5 py-[3px] text-[12px] font-bold tracking-[0.08em] text-ink uppercase">
                     {format(days[0], "MMM")}
                   </span>
                   <span className="h-px flex-1 bg-line-strong" />
