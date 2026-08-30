@@ -31,6 +31,13 @@ export interface Settings {
   defaultView: CalendarView;
   /** Dim Saturday and Sunday in the grid. */
   highlightWeekends: boolean;
+  /** Show national holidays alongside what is actually in the calendar. */
+  holidays: boolean;
+  /**
+   * Whose holidays, by country code — at most MAX_HOLIDAY_COUNTRIES of them.
+   * A calendar of everybody's national days is a calendar of nothing.
+   */
+  holidayCountries: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +46,8 @@ export const DEFAULT_SETTINGS: Settings = {
   weekStartsOn: 1,
   defaultView: "week",
   highlightWeekends: true,
+  holidays: true,
+  holidayCountries: ["US"],
 };
 
 const KEY = "cc.settings.v1";

@@ -19,6 +19,7 @@ import {
   Plus,
   Eye,
   EyeOff,
+  Flag,
   Lock,
   Palette,
   Pencil,
@@ -31,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { colorVar, COLOR_KEYS, COLORS } from "@/lib/colors";
 import { weekDays } from "@/lib/date";
 import { uploadAttachment } from "@/lib/db";
+import { holidayEvents, isHoliday } from "@/lib/holidays";
 import { MAX_FILE_BYTES, formatBytes, titleFromFileName } from "@/lib/files";
 import { useIsMobile } from "@/lib/media";
 import { useSettings } from "@/lib/settings";
@@ -145,11 +147,32 @@ export function CalendarApp() {
     null,
   );
 
+  /*
+   * The national days, worked out rather than stored — see lib/holidays.ts.
+   * A year either side of what is being looked at covers any view, and the
+   * year is what the work depends on, so paging through months does not do it
+   * again.
+   */
+  const year = date.getFullYear();
+  const holidays = useMemo(
+    () =>
+      settings.holidays
+        ? holidayEvents(
+            settings.holidayCountries,
+            new Date(year - 1, 0, 1),
+            new Date(year + 1, 11, 31),
+            store.currentUserId,
+          )
+        : [],
+    [settings.holidays, settings.holidayCountries, year, store.currentUserId],
+  );
+
   const events = useMemo(() => {
     // Focusing a group is a calendar within the calendar: same views, only
-    // what that group is involved in.
+    // what that group is involved in. Holidays are nobody's group, so they
+    // stand aside while one is being looked at.
     const base = !focus
-      ? store.visibleEvents
+      ? [...store.visibleEvents, ...holidays]
       : focus.kind === "group"
         ? store.eventsInGroup(focus.id).filter((e) => store.visibleEvents.includes(e))
         : store.visibleEvents.filter((e) => e.calendarId === focus.id);
@@ -161,7 +184,7 @@ export function CalendarApp() {
         field?.toLowerCase().includes(q),
       ),
     );
-  }, [store, focus, query]);
+  }, [store, focus, query, holidays]);
 
   const defaultCalendarId =
     store.myCalendars.find((c) => c.visible)?.id ??
@@ -271,6 +294,27 @@ export function CalendarApp() {
       e.preventDefault();
       e.stopPropagation();
       setSelectedId(event.id);
+
+      /*
+       * A public holiday is not yours to move, rename or share, so the one
+       * thing worth offering is the way out of them — which is otherwise
+       * buried in the settings, and asked for at exactly this moment.
+       */
+      if (isHoliday(event)) {
+        setMenu({
+          x: e.clientX,
+          y: e.clientY,
+          items: [
+            { kind: "heading", label: event.title },
+            {
+              label: "Hide national holidays",
+              icon: <Flag size={13} />,
+              onSelect: () => settings.set("holidays", false),
+            },
+          ],
+        });
+        return;
+      }
 
       // A busy block carries no details, so there is nothing to act on.
       if (event.masked) {
@@ -454,7 +498,7 @@ export function CalendarApp() {
 
       setMenu({ x: e.clientX, y: e.clientY, items });
     },
-    [contacts, copyToMyCalendar, editEvent, store],
+    [contacts, copyToMyCalendar, editEvent, settings, store],
   );
 
   const slotMenu = useCallback(
@@ -591,7 +635,10 @@ export function CalendarApp() {
       },
       onDropFiles: dropFiles,
       onDropFilesOnEvent: dropFilesOnEvent,
-      onOpenEvent: editEvent,
+      // Nothing to open on a day the whole country keeps.
+      onOpenEvent: (event) => {
+        if (!isHoliday(event)) editEvent(event);
+      },
       onEventMenu: eventMenu,
       onCreate: openEventDialog,
       onSlotMenu: slotMenu,

@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarSync,
   Clock,
+  Flag,
   Monitor,
   Moon,
   Palette,
@@ -14,6 +15,10 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  HOLIDAY_COUNTRIES,
+  MAX_HOLIDAY_COUNTRIES,
+} from "@/lib/holidays";
 import { useIsMobile } from "@/lib/media";
 import { useSettings, type Settings } from "@/lib/settings";
 import { useStore } from "@/lib/store";
@@ -158,6 +163,25 @@ export function SettingsDialog({
 
         </Group>
 
+        <Group title="National holidays" icon={Flag}>
+          <Field label="Show them">
+            <Choice<boolean>
+              value={settings.holidays}
+              onChange={(v) => settings.set("holidays", v)}
+              options={[
+                { value: true, label: "Show" },
+                { value: false, label: "Hide" },
+              ]}
+            />
+          </Field>
+
+          {settings.holidays && (
+            <Field label="Whose">
+              <Countries />
+            </Field>
+          )}
+        </Group>
+
         <Group title="Who sees what" icon={Users}>
           <Field label="Always share what I create with">
             <AutoShareField />
@@ -240,6 +264,62 @@ function Group({
       </h3>
       <div className="space-y-4">{children}</div>
     </section>
+  );
+}
+
+/**
+ * Which countries' holidays to show, up to three.
+ *
+ * The limit is not arbitrary: past three, the days people actually keep are
+ * lost among days nobody in the house observes, and the calendar stops being
+ * about this household. A fourth is refused rather than quietly dropping the
+ * first, so nothing disappears without being asked for.
+ */
+function Countries() {
+  const settings = useSettings();
+  const chosen = settings.holidayCountries;
+  const full = chosen.length >= MAX_HOLIDAY_COUNTRIES;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5">
+        {HOLIDAY_COUNTRIES.map((country) => {
+          const on = chosen.includes(country.code);
+          return (
+            <button
+              key={country.code}
+              type="button"
+              disabled={!on && full}
+              onClick={() =>
+                settings.set(
+                  "holidayCountries",
+                  on
+                    ? chosen.filter((c) => c !== country.code)
+                    : [...chosen, country.code],
+                )
+              }
+              className={clsx(
+                "rounded-lg border px-3 py-1.5 text-[13px] transition",
+                on
+                  ? "border-brand/50 bg-brand-soft font-medium text-brand"
+                  : full
+                    ? "border-line text-ink-faint opacity-60"
+                    : "border-line text-ink-muted hover:bg-surface-2 hover:text-ink",
+              )}
+            >
+              {country.name}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-ink-faint">
+        {chosen.length === 0
+          ? "Pick a country, or nothing will show."
+          : full
+            ? `Three at once is the most. Turn one off to make room for another.`
+            : `Up to ${MAX_HOLIDAY_COUNTRIES} at once. Only the days the whole country keeps are shown, never a single state's or region's.`}
+      </p>
+    </>
   );
 }
 
