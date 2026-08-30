@@ -212,6 +212,22 @@ export function MonthView({
           const shown = segments.filter((s) => s.lane < maxLanes);
           const hidden = segments.filter((s) => s.lane >= maxLanes);
 
+          /*
+           * Where the month turns over, said plainly rather than left to be
+           * worked out by reading the numbers — which is the whole trouble
+           * with scrolling week by week.
+           *
+           * Inside a row it is a band standing between the last day of one
+           * month and the first of the next, taking a sliver from each and
+           * carrying the new month's name. Where a month begins on the first
+           * day of a week there is no such gap, and the row's own top edge is
+           * the break.
+           */
+          const turnsOver = days.findIndex(
+            (day, i) => i > 0 && !isSameMonth(day, days[i - 1]),
+          );
+          const opensRow = days[0].getDate() === 1;
+
           return (
             <div
               key={weekIndex}
@@ -329,6 +345,26 @@ export function MonthView({
                   </div>
                 );
               })}
+
+              {turnsOver > 0 && (
+                <div
+                  className="pointer-events-none absolute inset-y-0 z-20 flex w-[15px] -translate-x-1/2 items-center justify-center border-x border-line-strong bg-surface-2"
+                  style={{ left: `${(turnsOver * 100) / 7}%` }}
+                >
+                  <span className="text-[9px] font-semibold tracking-[0.08em] text-ink-faint uppercase [writing-mode:vertical-rl]">
+                    {format(days[turnsOver], "MMM")}
+                  </span>
+                </div>
+              )}
+
+              {opensRow && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-0 items-center gap-1.5 pr-2">
+                  <span className="rounded-r-sm border-y border-r border-line-strong bg-surface-2 px-1.5 py-[3px] text-[9px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
+                    {format(days[0], "MMM")}
+                  </span>
+                  <span className="h-px flex-1 bg-line-strong" />
+                </div>
+              )}
 
               <div
                 className={clsx(
