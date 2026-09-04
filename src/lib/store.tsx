@@ -27,6 +27,7 @@ import type {
   ColorKey,
   EventDraft,
   EventItem,
+  Group,
   Importance,
   ListKind,
   Invite,
@@ -1288,9 +1289,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       proposeMember: async (groupId, who) => {
         try {
-          await db.proposeMember(supabase, groupId, who);
+          const myName = d.people.find((x) => x.id === userId)?.name ?? "Somebody";
+          const requestId = await db.proposeMember(supabase, groupId, who);
           // A group of one agrees on the spot, so the invitation can go now.
-          await sendAgreedInvites(supabase, d.people.find((x) => x.id === userId)?.name ?? "Somebody");
+          await sendAgreedInvites(supabase, myName);
+          // Whoever now has to answer — the group, or the newcomer if the
+          // group was only you — is told outside the app as well.
+          const fresh = await db.joinRequestById(supabase, requestId);
+          if (fresh) await mailAboutRequest(fresh, d.people, d.groups, userId, myName);
           await refresh();
         } catch (e) {
           setError(describe(e, "asking the group"));
@@ -1299,9 +1305,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       voteOnJoin: async (requestId, approve) => {
         try {
+          const myName = d.people.find((x) => x.id === userId)?.name ?? "Somebody";
           const outcome = await db.voteOnJoinRequest(supabase, requestId, approve);
           if (outcome === "approved") {
-            await sendAgreedInvites(supabase, d.people.find((x) => x.id === userId)?.name ?? "Somebody");
+            await sendAgreedInvites(supabase, myName);
+            // The last yes is the newcomer's cue, and they are not sitting in
+            // the app waiting for it.
+            const fresh = await db.joinRequestById(supabase, requestId);
+            if (fresh) await mailAboutRequest(fresh, d.people, d.groups, userId, myName);
           }
           await refresh();
         } catch (e) {
@@ -1663,6 +1674,56 @@ async function sessionNote(supabase: SupabaseClient) {
 
 /** Which delta to paste, given which tables are missing. */
 /** The link an invitation email points at — the same one the dialog builds. */
+/**
+ * The two moments in letting somebody in that have to leave the app.
+ *
+ * Being asked to agree is not news anybody goes looking for: the question sits
+ * in a sidebar there is no reason to open, and the person who asked is left
+ * thinking nothing happened. So the group is written to when it is asked, and
+ * the newcomer when it has agreed. Everything else stays in the app.
+ *
+ * The mail is best-effort by design — the notifications are already written,
+ * and a mail server having a bad afternoon must not undo a decision.
+ */
+async function mailAboutRequest(
+  request: { group_id: string; invitee_id: string | null; email: string | null; status: string },
+  people: Person[],
+  groups: Group[],
+  actorId: string,
+  fromName: string,
+) {
+  const group = groups.find((g) => g.id === request.group_id);
+  const personName =
+    people.find((p) => p.id === request.invitee_id)?.name ?? request.email ?? "somebody";
+
+  const to =
+    request.status === "pending"
+      ? (group?.memberIds ?? [])
+          .filter((id) => id !== actorId)
+          .map((id) => people.find((p) => p.id === id)?.email)
+          .filter((email): email is string => Boolean(email))
+      : request.status === "approved" && request.invitee_id
+        ? [people.find((p) => p.id === request.invitee_id)?.email].filter(
+            (email): email is string => Boolean(email),
+          )
+        : [];
+
+  if (!to.length) return;
+
+  await fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: request.status === "pending" ? "vote" : "join",
+      to,
+      fromName,
+      personName,
+      groupName: group?.name ?? "a group",
+      link: `${publicUrl()}/calendar`,
+    }),
+  }).catch(() => {});
+}
+
 function sendAgreedInvites(supabase: SupabaseClient, fromName: string) {
   return db.sendApprovedGroupInvites(
     supabase,

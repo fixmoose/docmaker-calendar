@@ -1093,6 +1093,23 @@ export async function voteOnJoinRequest(
   return data as string;
 }
 
+/** One request, read back after writing it, so the app can say who to tell. */
+export async function joinRequestById(supabase: Client, id: string) {
+  const { data } = await supabase
+    .from("cc_group_join_requests")
+    .select("id,group_id,invitee_id,email,proposed_by,status")
+    .eq("id", id)
+    .maybeSingle();
+  return (data ?? null) as {
+    id: string;
+    group_id: string;
+    invitee_id: string | null;
+    email: string | null;
+    proposed_by: string;
+    status: string;
+  } | null;
+}
+
 export async function withdrawJoinRequest(supabase: Client, requestId: string) {
   const { error } = await supabase.rpc("cc_withdraw_join_request", {
     p_request: requestId,

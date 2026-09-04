@@ -9,10 +9,11 @@
 -- because accepting is only offered to the person a request names. Approved,
 -- pending, and stuck.
 --
--- Three changes: an address is resolved to its account when the group is
--- asked, and again when it agrees (somebody may sign up in between); and
--- joining answers any invitation still out for that group, so nobody stays
--- "pending" after they are through the door.
+-- Four changes: an address is resolved to its account when the group is asked,
+-- and again when it agrees (somebody may sign up in between); proposing
+-- somebody the group has already agreed to nudges them instead of asking the
+-- same question a second time; and joining answers any invitation still out
+-- for that group, so nobody stays "pending" after they are through the door.
 
 /* ------------------------------------------------------------------ *
  * Proposing
@@ -66,6 +67,32 @@ begin
     )
   limit 1;
   if request_id is not null then
+    return request_id;
+  end if;
+
+  -- The group may already have agreed and be waiting on the person. Asking
+  -- the same question twice leaves two cards to answer and one of them stale;
+  -- what is wanted here is a nudge.
+  select id into request_id
+  from cc_group_join_requests
+  where group_id = p_group
+    and status = 'approved'
+    and (
+      (p_invitee is not null and invitee_id = p_invitee)
+      or (p_invitee is null and lower(email) = lower(p_email))
+    )
+  limit 1;
+  if request_id is not null then
+    if p_invitee is not null then
+      insert into cc_notifications (user_id, actor_id, kind, title, body)
+      values (
+        p_invitee,
+        actor,
+        'invite',
+        (select name from cc_groups where id = p_group) || ' would like you to join',
+        'Everyone there has already agreed — this is waiting on you.'
+      );
+    end if;
     return request_id;
   end if;
 
@@ -281,3 +308,20 @@ select
   'Everyone there will see when you are busy, and you will see the same of them.'
 from matched m
 where m.status = 'approved';
+
+-- A question asked twice: where the group has already agreed about somebody,
+-- an older pending copy is nothing anybody needs to answer.
+update cc_group_join_requests r
+   set status = 'withdrawn', settled_at = now()
+ where r.status = 'pending'
+   and exists (
+     select 1 from cc_group_join_requests a
+     where a.group_id = r.group_id
+       and a.status = 'approved'
+       and a.id <> r.id
+       and (
+         (r.invitee_id is not null and a.invitee_id = r.invitee_id)
+         or (r.invitee_id is null and r.email is not null
+             and lower(a.email) = lower(r.email))
+       )
+   );
