@@ -6,6 +6,7 @@ import {
   addMonths,
   addWeeks,
   formatISO,
+  parseISO,
   startOfDay,
   startOfMonth,
 } from "date-fns";
@@ -25,6 +26,7 @@ import {
   Pencil,
   Share2,
   SquarePen,
+  StickyNote,
   Trash2,
   Users,
 } from "lucide-react";
@@ -36,7 +38,7 @@ import { holidayEvents, isHoliday } from "@/lib/holidays";
 import { MAX_FILE_BYTES, formatBytes, titleFromFileName } from "@/lib/files";
 import { useIsMobile } from "@/lib/media";
 import { useSettings } from "@/lib/settings";
-import { useStore } from "@/lib/store";
+import { localDay, useStore } from "@/lib/store";
 import {
   DEFAULT_REMINDERS,
   type Calendar,
@@ -526,6 +528,21 @@ export function CalendarApp() {
           icon: <CalendarDays size={13} />,
           onSelect: () => openEventDialog(startOfDay(at), startOfDay(at), true),
         },
+        {
+          /*
+           * Not everything worth writing down is an event. "Took the subway"
+           * is about the day, and asking for it here is asking for it where
+           * the day is.
+           */
+          label: "Note about this day",
+          icon: <StickyNote size={13} />,
+          onSelect: () => {
+            window.dispatchEvent(new CustomEvent("cc:open-notes", { detail: "me" }));
+            window.dispatchEvent(
+              new CustomEvent("cc:note-for-day", { detail: localDay(at) }),
+            );
+          },
+        },
         { kind: "separator" },
         {
           label: "Go to this day",
@@ -733,6 +750,25 @@ export function CalendarApp() {
     params.delete("event");
     window.history.replaceState(null, "", `?${params.toString()}`);
   }, [store.ready, store.visibleEvents, editEvent]);
+
+  /*
+   * The marks in the corner of a day box, and the day a note is pinned to:
+   * both are asking for something outside the grid, so the grid asks for it
+   * rather than reaching across to fetch it itself.
+   */
+  useEffect(() => {
+    const openNotes = () => setNotesOpen(true);
+    const goToDay = (e: Event) => {
+      const day = (e as CustomEvent<string>).detail;
+      if (day) setDate(parseISO(day));
+    };
+    window.addEventListener("cc:open-notes", openNotes);
+    window.addEventListener("cc:go-to-day", goToDay);
+    return () => {
+      window.removeEventListener("cc:open-notes", openNotes);
+      window.removeEventListener("cc:go-to-day", goToDay);
+    };
+  }, []);
 
   // A reminder card asking to open its event.
   useEffect(() => {

@@ -36,6 +36,7 @@ import type {
   Person,
   Privacy,
   ReminderDraft,
+  ShoppingList,
 } from "./types";
 
 /**
@@ -80,6 +81,19 @@ function writePrefs(userId: string, prefs: ViewPrefs) {
   } catch {
     /* private mode — preferences just will not persist */
   }
+}
+
+/** yyyy-mm-dd where the person is, not where the server is. */
+export function localDay(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The list still being written for one sheet: the newest unfinished one. */
+function openListFor(lists: ShoppingList[], groupId: string | undefined) {
+  return lists
+    .filter((l) => !l.done && (l.groupId ?? undefined) === groupId)
+    .sort((a, b) => b.day.localeCompare(a.day))[0];
 }
 
 interface Data extends db.Workspace {
@@ -174,7 +188,22 @@ interface StoreValue extends Data {
     groupId?: string;
     color: ColorKey;
     eventId?: string;
+    /** yyyy-mm-dd, when the note is about a day rather than an event. */
+    day?: string;
   }) => void;
+  /** Pin a note to a day, or take it off one. */
+  setNoteDay: (noteId: string, day?: string) => void;
+  /**
+   * Add to the open list for a sheet — yours, or a group's — starting one
+   * dated today if there is none. An open list follows the day it was last
+   * added to or ticked off, so the calendar shows where the shopping stands.
+   */
+  addShoppingItem: (groupId: string | undefined, text: string) => void;
+  tickShoppingItem: (listId: string, itemId: string, done: boolean) => void;
+  removeShoppingItem: (listId: string, itemId: string) => void;
+  /** Finish a list, or reopen it. A finished list stays on its day for good. */
+  finishShoppingList: (listId: string, done: boolean) => void;
+  removeShoppingList: (listId: string) => void;
   /** Pin a note to an event, or take it off one. A note may serve several. */
   pinNoteTo: (noteId: string, eventId: string) => void;
   unpinNoteFrom: (noteId: string, eventId: string) => void;
@@ -264,6 +293,7 @@ const EMPTY: Data = {
   notifications: [],
   acknowledged: [],
   notes: [],
+  shoppingLists: [],
   autoShare: [],
   joinRequests: [],
   skippedOccurrences: [],
@@ -396,6 +426,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_notes" }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_note_events" }, reload)
+      // Ticking something off should reach whoever is standing in the aisle.
+      .on("postgres_changes", { event: "*", schema: "public", table: "cc_shopping_lists" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cc_shopping_items" }, reload)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "cc_event_shares" },
@@ -1421,6 +1454,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 id: `tmp_${crypto.randomUUID()}`,
                 body: note.body,
                 groupId: note.groupId,
+                day: note.day,
                 eventIds: note.eventId ? [note.eventId] : [],
                 color: note.color,
                 pinned: false,
@@ -1435,6 +1469,146 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             await db.insertNote(supabase, note);
             await refresh();
           },
+        ),
+
+      setNoteDay: (noteId, day) =>
+        write(
+          (s) => ({
+            ...s,
+            notes: s.notes.map((n) => (n.id === noteId ? { ...n, day } : n)),
+          }),
+          () => db.patchNote(supabase, noteId, { day: day ?? null }),
+        ),
+
+      /*
+       * The shopping.
+       *
+       * One list per sheet is open at a time, and it follows the day it was
+       * last worked on, so the calendar shows where the shopping stands rather
+       * than where it started. Finishing a list leaves it on its day for good
+       * and the next one begins with the next shopping — which is how a month
+       * fills up with the days somebody went out.
+       */
+      addShoppingItem: (groupId, text) => {
+        const body = text.trim();
+        if (!body) return;
+        const today = localDay(new Date());
+        const open = openListFor(d.shoppingLists, groupId);
+        const listId = open?.id ?? crypto.randomUUID();
+        const itemId = crypto.randomUUID();
+        const position = open?.items.length ?? 0;
+
+        write(
+          (s) => ({
+            ...s,
+            shoppingLists: open
+              ? s.shoppingLists.map((l) =>
+                  l.id === listId
+                    ? {
+                        ...l,
+                        day: today,
+                        items: [
+                          ...l.items,
+                          {
+                            id: itemId,
+                            text: body,
+                            done: false,
+                            position,
+                            createdBy: userId,
+                          },
+                        ],
+                      }
+                    : l,
+                )
+              : [
+                  {
+                    id: listId,
+                    groupId,
+                    day: today,
+                    done: false,
+                    createdBy: userId,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    items: [
+                      { id: itemId, text: body, done: false, position, createdBy: userId },
+                    ],
+                  },
+                  ...s.shoppingLists,
+                ],
+          }),
+          async () => {
+            if (!open) await db.insertShoppingList(supabase, { id: listId, groupId, day: today });
+            else if (open.day !== today) {
+              await db.patchShoppingList(supabase, listId, { day: today });
+            }
+            await db.insertShoppingItem(supabase, { id: itemId, listId, text: body, position });
+          },
+        );
+      },
+
+      tickShoppingItem: (listId, itemId, done) => {
+        const today = localDay(new Date());
+        const list = d.shoppingLists.find((l) => l.id === listId);
+        // A finished list is a record of that day and does not move again.
+        const moves = Boolean(list && !list.done && list.day !== today);
+
+        write(
+          (s) => ({
+            ...s,
+            shoppingLists: s.shoppingLists.map((l) =>
+              l.id === listId
+                ? {
+                    ...l,
+                    day: moves ? today : l.day,
+                    items: l.items.map((item) =>
+                      item.id === itemId
+                        ? { ...item, done, doneBy: done ? userId : undefined }
+                        : item,
+                    ),
+                  }
+                : l,
+            ),
+          }),
+          async () => {
+            await db.patchShoppingItem(supabase, itemId, {
+              done,
+              done_by: done ? userId : null,
+              done_at: done ? new Date().toISOString() : null,
+            });
+            if (moves) await db.patchShoppingList(supabase, listId, { day: today });
+          },
+        );
+      },
+
+      removeShoppingItem: (listId, itemId) =>
+        write(
+          (s) => ({
+            ...s,
+            shoppingLists: s.shoppingLists.map((l) =>
+              l.id === listId
+                ? { ...l, items: l.items.filter((item) => item.id !== itemId) }
+                : l,
+            ),
+          }),
+          () => db.deleteShoppingItem(supabase, itemId),
+        ),
+
+      finishShoppingList: (listId, done) =>
+        write(
+          (s) => ({
+            ...s,
+            shoppingLists: s.shoppingLists.map((l) => (l.id === listId ? { ...l, done } : l)),
+          }),
+          () => db.patchShoppingList(supabase, listId, { done }),
+        ),
+
+      removeShoppingList: (listId) =>
+        write(
+          (s) => ({
+            ...s,
+            shoppingLists: s.shoppingLists.filter((l) => l.id !== listId),
+          }),
+          () => db.deleteShoppingList(supabase, listId),
         ),
 
       pinNoteTo: (noteId, eventId) =>

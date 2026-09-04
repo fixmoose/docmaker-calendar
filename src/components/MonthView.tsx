@@ -14,13 +14,13 @@ import {
   startOfMonth,
 } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { Paperclip, ShoppingCart, StickyNote } from "lucide-react";
 import { colorVar } from "@/lib/colors";
 import { layoutWeek, monthMatrix, occursOn, weekDays } from "@/lib/date";
 import { isHoliday } from "@/lib/holidays";
 import { useIsMobile } from "@/lib/media";
 import { dragHasFiles, filesFromDrag } from "@/lib/files";
-import { useStore } from "@/lib/store";
+import { localDay, useStore } from "@/lib/store";
 import type { CalendarEvent } from "@/lib/types";
 import { EventPill } from "./EventPill";
 import type { ViewHandlers } from "./view-types";
@@ -46,7 +46,32 @@ export function MonthView({
   events: CalendarEvent[];
   handlers: ViewHandlers;
 }) {
-  const { rescheduleEvent, canEditEvent } = useStore();
+  const { rescheduleEvent, canEditEvent, notes, shoppingLists } = useStore();
+
+  /*
+   * What is written against a day rather than against something in it: a note
+   * about the day, and the shopping. Both are a mark in the corner of the box
+   * — small enough to ignore, enough to know it is there — and both open the
+   * paper they live on.
+   */
+  const marks = useMemo(() => {
+    const map = new Map<string, { notes: number; board: string; shopping: boolean }>();
+    const at = (day: string) =>
+      map.get(day) ?? { notes: 0, board: "me", shopping: false };
+    for (const note of notes) {
+      if (!note.day) continue;
+      const mark = at(note.day);
+      map.set(note.day, {
+        ...mark,
+        notes: mark.notes + 1,
+        board: mark.notes ? mark.board : (note.groupId ?? "me"),
+      });
+    }
+    for (const list of shoppingLists) {
+      map.set(list.day, { ...at(list.day), shopping: true });
+    }
+    return map;
+  }, [notes, shoppingLists]);
   const isMobile = useIsMobile();
   /**
    * Where the six rows start when a month is simply opened.
@@ -391,6 +416,8 @@ export function MonthView({
                       </button>
                     </div>
 
+                    <DayMarks mark={marks.get(localDay(day))} />
+
                     {isMobile ? (
                       <MonthDots events={plain} day={day} />
                     ) : null}
@@ -512,6 +539,49 @@ export function MonthView({
  * says how many, because five identical dots tell you nothing a number does
  * not. The whole cell already opens the day, where the titles live.
  */
+/**
+ * The corner of the day box: a list was written here, or something was noted
+ * about the day itself. Quiet marks — the day's own business, not an
+ * appointment — and each one opens the paper it belongs to.
+ */
+function DayMarks({
+  mark,
+}: {
+  mark: { notes: number; board: string; shopping: boolean } | undefined;
+}) {
+  if (!mark || (!mark.shopping && !mark.notes)) return null;
+
+  const open = (e: React.MouseEvent, board: string) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent("cc:open-notes", { detail: board }));
+  };
+
+  return (
+    <span className="absolute top-1 right-1 z-10 flex items-center gap-1">
+      {mark.shopping && (
+        <button
+          type="button"
+          title="There is a shopping list for this day"
+          onClick={(e) => open(e, "cc-shopping")}
+          className="text-ink-faint transition hover:text-brand"
+        >
+          <ShoppingCart size={12} />
+        </button>
+      )}
+      {mark.notes > 0 && (
+        <button
+          type="button"
+          title={`${mark.notes} note${mark.notes === 1 ? "" : "s"} about this day`}
+          onClick={(e) => open(e, mark.board)}
+          className="text-ink-faint transition hover:text-brand"
+        >
+          <StickyNote size={12} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 function MonthDots({ events, day }: { events: CalendarEvent[]; day: Date }) {
   const { calendarById } = useStore();
   const onDay = events.filter((e) => occursOn(e, day));

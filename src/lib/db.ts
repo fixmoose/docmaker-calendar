@@ -17,6 +17,8 @@ import type {
   Invite,
   ListKind,
   Note,
+  ShoppingItem,
+  ShoppingList,
   DeletedEvent,
   Person,
   Privacy,
@@ -165,6 +167,8 @@ export interface Workspace {
   /** "<reminder id>:<occurrence ISO>" for everything already answered. */
   acknowledged: string[];
   notes: Note[];
+  /** The shopping, by day — see ShoppingList. */
+  shoppingLists: ShoppingList[];
   /** People every new event of mine is shared with automatically. */
   autoShare: string[];
   /** Who the groups have been asked to let in. */
@@ -356,6 +360,7 @@ export async function setSubscription(
 interface NoteRow {
   id: string;
   group_id: string | null;
+  day: string | null;
   body: string;
   color: string;
   pinned: boolean;
@@ -367,6 +372,7 @@ interface NoteRow {
 const toNote = (row: NoteRow): Note => ({
   id: row.id,
   groupId: row.group_id ?? undefined,
+  day: row.day ?? undefined,
   eventIds: [],
   body: row.body,
   color: asColor(row.color),
@@ -378,13 +384,14 @@ const toNote = (row: NoteRow): Note => ({
 
 export async function insertNote(
   supabase: Client,
-  note: { body: string; groupId?: string; color: ColorKey; eventId?: string },
+  note: { body: string; groupId?: string; color: ColorKey; eventId?: string; day?: string },
 ) {
   const id = crypto.randomUUID();
   const { error } = await supabase.from("cc_notes").insert({
     id,
     body: note.body,
     group_id: note.groupId ?? null,
+    day: note.day ?? null,
     color: note.color,
   });
   if (error) throw error;
@@ -424,6 +431,65 @@ export async function patchNote(
 
 export async function deleteNote(supabase: Client, id: string) {
   const { error } = await supabase.from("cc_notes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ------------------------------------------------------------------ *
+ * The shopping
+ * ------------------------------------------------------------------ */
+
+export async function insertShoppingList(
+  supabase: Client,
+  list: { id: string; groupId?: string; day: string },
+) {
+  const { error } = await supabase.from("cc_shopping_lists").insert({
+    id: list.id,
+    group_id: list.groupId ?? null,
+    day: list.day,
+  });
+  if (error) throw error;
+  return list.id;
+}
+
+export async function patchShoppingList(
+  supabase: Client,
+  id: string,
+  changes: Record<string, unknown>,
+) {
+  const { error } = await supabase.from("cc_shopping_lists").update(changes).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteShoppingList(supabase: Client, id: string) {
+  const { error } = await supabase.from("cc_shopping_lists").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function insertShoppingItem(
+  supabase: Client,
+  item: { id: string; listId: string; text: string; quantity?: string; position: number },
+) {
+  const { error } = await supabase.from("cc_shopping_items").insert({
+    id: item.id,
+    list_id: item.listId,
+    text: item.text,
+    quantity: item.quantity ?? null,
+    position: item.position,
+  });
+  if (error) throw error;
+}
+
+export async function patchShoppingItem(
+  supabase: Client,
+  id: string,
+  changes: Record<string, unknown>,
+) {
+  const { error } = await supabase.from("cc_shopping_items").update(changes).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteShoppingItem(supabase: Client, id: string) {
+  const { error } = await supabase.from("cc_shopping_items").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -537,13 +603,34 @@ async function loadFeed(supabase: Client) {
   return supabase.from("cc_calendar_feed").select(FEED_COLUMNS);
 }
 
+interface ShoppingListRow {
+  id: string;
+  group_id: string | null;
+  day: string;
+  done: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ShoppingItemRow {
+  id: string;
+  list_id: string;
+  text: string;
+  quantity: string | null;
+  done: boolean;
+  done_by: string | null;
+  position: number;
+  created_by: string;
+}
+
 /** Everything the calendar needs, in one round of parallel queries. */
 export async function loadWorkspace(
   supabase: Client,
   hiddenCalendarIds: Set<string>,
   userId: string,
 ): Promise<Workspace> {
-  const [profiles, groups, members, calendars, feed, guests, attachments, invites, reminders, subscriptions, acks, items, notifications, notes, noteLinks, feeds, autoShare, joinRequests, joinVotes, exceptions] =
+  const [profiles, groups, members, calendars, feed, guests, attachments, invites, reminders, subscriptions, acks, items, notifications, notes, noteLinks, feeds, autoShare, joinRequests, joinVotes, exceptions, shoppingLists, shoppingItems] =
     await Promise.all([
       supabase
         .from("cc_profiles")
@@ -582,7 +669,7 @@ export async function loadWorkspace(
         .limit(50),
       supabase
         .from("cc_notes")
-        .select("id,group_id,body,color,pinned,created_by,created_at,updated_at")
+        .select("id,group_id,day,body,color,pinned,created_by,created_at,updated_at")
         .order("created_at", { ascending: false })
         .limit(300),
       supabase.from("cc_note_events").select("note_id,event_id"),
@@ -600,6 +687,15 @@ export async function loadWorkspace(
         .order("created_at", { ascending: false }),
       supabase.from("cc_group_join_votes").select("request_id,user_id,approve"),
       supabase.from("cc_event_exceptions").select("event_id,occurrence_start,override_id"),
+      supabase
+        .from("cc_shopping_lists")
+        .select("id,group_id,day,done,created_by,created_at,updated_at")
+        .order("day", { ascending: false })
+        .limit(200),
+      supabase
+        .from("cc_shopping_items")
+        .select("id,list_id,text,quantity,done,done_by,position,created_by")
+        .order("position"),
     ]);
 
   /**
@@ -631,6 +727,8 @@ export async function loadWorkspace(
     cc_group_join_requests: joinRequests,
     cc_group_join_votes: joinVotes,
     cc_event_exceptions: exceptions,
+    cc_shopping_lists: shoppingLists,
+    cc_shopping_items: shoppingItems,
   };
 
   const missing: string[] = [];
@@ -731,6 +829,28 @@ export async function loadWorkspace(
       eventIds: ((noteLinks.data ?? []) as { note_id: string; event_id: string }[])
         .filter((l) => l.note_id === row.id)
         .map((l) => l.event_id),
+    })),
+    shoppingLists: ((shoppingLists.data ?? []) as ShoppingListRow[]).map((row) => ({
+      id: row.id,
+      groupId: row.group_id ?? undefined,
+      day: row.day,
+      done: row.done,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      items: ((shoppingItems.data ?? []) as ShoppingItemRow[])
+        .filter((item) => item.list_id === row.id)
+        .map(
+          (item): ShoppingItem => ({
+            id: item.id,
+            text: item.text,
+            quantity: item.quantity ?? undefined,
+            done: item.done,
+            doneBy: item.done_by ?? undefined,
+            position: item.position,
+            createdBy: item.created_by,
+          }),
+        ),
     })),
     // Only my own standing arrangements — the table also holds rows naming me,
     // which are somebody else's decision to share with me.

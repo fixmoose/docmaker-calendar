@@ -138,12 +138,52 @@ export interface Note {
   groupId?: string;
   /** The events this note is pinned to. A note can serve several. */
   eventIds: string[];
+  /**
+   * The day this note is about, as yyyy-mm-dd, when it is about the day
+   * rather than about anything in it. "Took the subway" belongs to a
+   * Tuesday, not to whatever happened to be in the diary that Tuesday.
+   */
+  day?: string;
   body: string;
   color: ColorKey;
   pinned: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * A shopping list: shared like a note, but worked like a list.
+ *
+ * It belongs to a day and stays open until somebody finishes it. Adding to an
+ * open list moves it to the day it was last added to, so the calendar shows
+ * where the shopping stands rather than where it started; finishing one
+ * leaves it on its day for good, and the next list starts with the next
+ * shopping.
+ */
+export interface ShoppingList {
+  id: string;
+  /** Unset for your own list; set for one a group shares. */
+  groupId?: string;
+  /** yyyy-mm-dd. */
+  day: string;
+  /** Finished, or given up on: either way it no longer moves. */
+  done: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  items: ShoppingItem[];
+}
+
+export interface ShoppingItem {
+  id: string;
+  text: string;
+  /** Free text: "2 ×", "500g" and "a case of" all happen. */
+  quantity?: string;
+  done: boolean;
+  doneBy?: string;
+  position: number;
+  createdBy: string;
 }
 
 /** Draft used by the event dialog before an id exists. */
