@@ -1687,6 +1687,13 @@ begin
     raise exception 'Say who should join.';
   end if;
 
+  -- An address with an account behind it is a person, and the dialog cannot
+  -- always know that: somebody you have never shared anything with is not in
+  -- your list of people, so you type their address and mean them.
+  if p_invitee is null then
+    select id into p_invitee from cc_profiles where lower(email) = lower(p_email);
+  end if;
+
   if p_invitee is not null and cc_is_group_member(p_group, p_invitee) then
     raise exception 'They are already in this group.';
   end if;
@@ -1697,7 +1704,7 @@ begin
   where group_id = p_group
     and status = 'pending'
     and (
-      (p_invitee is not null and invitee_id = p_invitee)
+      (p_invitee is not null and (invitee_id = p_invitee or lower(email) = lower(p_email)))
       or (p_invitee is null and lower(email) = lower(p_email))
     )
   limit 1;
@@ -1760,6 +1767,7 @@ declare
   members   int;
   approvals int;
   refusals  int;
+  account   uuid;
 begin
   select * into request from cc_group_join_requests where id = p_request;
   if request.id is null or request.status <> 'pending' then
@@ -1799,6 +1807,17 @@ begin
   update cc_group_join_requests
      set status = 'approved', settled_at = now()
    where id = p_request;
+
+  -- Asking the group takes as long as it takes, and somebody can sign up in
+  -- the meantime. Ask again who this address belongs to before deciding that
+  -- it belongs to nobody.
+  if request.invitee_id is null and request.email is not null then
+    select id into account from cc_profiles where lower(email) = lower(request.email);
+    if account is not null then
+      update cc_group_join_requests set invitee_id = account where id = p_request;
+      request.invitee_id := account;
+    end if;
+  end if;
 
   -- The group has agreed; now the person does. Joining exposes their busy
   -- times to everyone here too, so nobody is put into a group unasked. An
@@ -1877,6 +1896,7 @@ as $$
 declare
   request cc_group_join_requests%rowtype;
   joiner  text;
+  address text;
   member  uuid;
 begin
   select * into request from cc_group_join_requests where id = p_request;
@@ -1898,7 +1918,16 @@ begin
   values (request.group_id, auth.uid(), 'member')
   on conflict do nothing;
 
-  select display_name into joiner from cc_profiles where id = auth.uid();
+  select display_name, email into joiner, address
+  from cc_profiles where id = auth.uid();
+
+  -- Being here answers anything still out for this group: somebody through
+  -- the door should not go on reading as pending.
+  update cc_invitations
+     set status = 'accepted', accepted_at = now(), accepted_by = auth.uid()
+   where group_id = request.group_id
+     and status in ('pending', 'sent')
+     and lower(email) = lower(coalesce(address, ''));
 
   for member in
     select user_id from cc_group_members
