@@ -83,6 +83,8 @@ function writePrefs(userId: string, prefs: ViewPrefs) {
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** yyyy-mm-dd where the person is, not where the server is. */
 export function localDay(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -992,7 +994,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...s,
             acknowledged: [...s.acknowledged, `${reminderId}:${dueAt}`],
           }),
-          () => db.acknowledgeReminder(supabase, reminderId, dueAt),
+          async () => {
+            // A reminder added a moment ago and not yet saved has no id worth
+            // recording against; dismissing it here is enough, and the saved
+            // one will not be due again by the time it arrives.
+            if (!UUID.test(reminderId)) return;
+            await db.acknowledgeReminder(supabase, reminderId, dueAt);
+          },
         ),
 
       setListKind: (eventId, kind) =>

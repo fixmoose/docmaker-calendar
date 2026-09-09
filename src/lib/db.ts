@@ -232,22 +232,57 @@ export async function setReminders(
   reminders: ReminderDraft[],
   userId: string,
 ) {
-  const { error: clearError } = await supabase
+  /*
+   * Only what actually changed.
+   *
+   * This used to delete every reminder and write them all back, which gave a
+   * reminder a new id each time anybody saved the event — for a title, for a
+   * minute's move, for anything. A reminder already ringing on somebody's
+   * screen was then answering for a row that no longer existed, and the
+   * answer was refused by the database. What a reminder is — this event, this
+   * long before — does not change when the event's title does, so neither
+   * should its identity.
+   */
+  const { data: existing, error: readError } = await supabase
     .from("cc_event_reminders")
-    .delete()
+    .select("id,minutes_before,channel,user_id")
     .eq("event_id", eventId)
     .or(`user_id.eq.${userId},user_id.is.null`);
-  if (clearError) throw clearError;
+  if (readError) throw readError;
 
-  if (!reminders.length) return;
-  const { error } = await supabase.from("cc_event_reminders").insert(
-    reminders.map((r) => ({
-      event_id: eventId,
-      minutes_before: r.minutesBefore,
-      channel: r.channel,
-      user_id: r.forEveryone ? null : userId,
-    })),
-  );
+  const wanted = reminders.map((r) => ({
+    event_id: eventId,
+    minutes_before: r.minutesBefore,
+    channel: r.channel,
+    user_id: r.forEveryone ? null : userId,
+  }));
+
+  const shape = (r: { minutes_before: number; channel: string; user_id: string | null }) =>
+    `${r.minutes_before}:${r.channel}:${r.user_id ?? "everyone"}`;
+
+  const rows = (existing ?? []) as {
+    id: string;
+    minutes_before: number;
+    channel: string;
+    user_id: string | null;
+  }[];
+
+  const kept = new Set<string>();
+  const added: typeof wanted = [];
+  for (const want of wanted) {
+    const match = rows.find((row) => shape(row) === shape(want) && !kept.has(row.id));
+    if (match) kept.add(match.id);
+    else added.push(want);
+  }
+
+  const gone = rows.filter((row) => !kept.has(row.id)).map((row) => row.id);
+  if (gone.length) {
+    const { error } = await supabase.from("cc_event_reminders").delete().in("id", gone);
+    if (error) throw error;
+  }
+
+  if (!added.length) return;
+  const { error } = await supabase.from("cc_event_reminders").insert(added);
   if (error) throw error;
 }
 
@@ -339,6 +374,13 @@ export async function acknowledgeReminder(
       { reminder_id: reminderId, due_at: dueAt },
       { onConflict: "reminder_id,user_id,due_at" },
     );
+  /*
+   * The reminder itself has gone — the event was changed, or deleted, while
+   * the card sat on screen. Dismissing something is not a moment to be told
+   * about a foreign key: there is nothing left to remind anybody of, which is
+   * the outcome the click was after.
+   */
+  if (error?.code === "23503") return;
   if (error) throw error;
 }
 
