@@ -351,7 +351,17 @@ export function MonthView({
                         ? handlers.onNavigate(day, "day")
                         : handlers.onSelectSlot(startOfDay(day), endOfDayOf(day), true)
                     }
-                    onDoubleClick={() => handlers.onNavigate(day, "day")}
+                    /*
+                     * Double-clicking empty space is how a new event is
+                     * started everywhere else in this calendar, and it was
+                     * the one place that answered by changing the view
+                     * instead — a double click that moved you rather than
+                     * made anything. The day number still opens the day.
+                     */
+                    onDoubleClick={() => {
+                      const start = addHours(startOfDay(day), 9);
+                      handlers.onCreate(start, addHours(start, 1), false);
+                    }}
                     onContextMenu={(e) => handlers.onSlotMenu(e, day, true)}
                     onDragEnter={(e) => {
                       if (!dragHasFiles(e)) return;
