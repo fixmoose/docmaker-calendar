@@ -45,7 +45,7 @@ function Row({
       className={clsx(
         "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-surface-2",
         // A national day is background, not a commitment.
-        spent ? "opacity-55" : isHoliday(event) && "opacity-70",
+        spent ? "cc-past" : isHoliday(event) && "opacity-70",
         handlers.selectedId === event.id && "bg-surface-2",
       )}
     >

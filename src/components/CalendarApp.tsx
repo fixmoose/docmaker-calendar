@@ -5,6 +5,7 @@ import {
   addHours,
   addMonths,
   addWeeks,
+  endOfDay,
   formatISO,
   parseISO,
   startOfDay,
@@ -148,6 +149,22 @@ export function CalendarApp() {
   const [slot, setSlot] = useState<{ start: string; end: string; allDay: boolean } | null>(
     null,
   );
+
+  /*
+   * "Today" picks the day out as a click would, not just goes there — the
+   * small mark on the number is easy to miss, and the frame says for certain
+   * which day it is.
+   */
+  const goToday = useCallback(() => {
+    const now = new Date();
+    setDate(now);
+    setSelectedId(null);
+    setSlot({
+      start: startOfDay(now).toISOString(),
+      end: endOfDay(now).toISOString(),
+      allDay: true,
+    });
+  }, []);
 
   /*
    * The national days, worked out rather than stored — see lib/holidays.ts.
@@ -816,7 +833,7 @@ export function CalendarApp() {
         return;
       }
       const key = e.key.toLowerCase();
-      if (key === "t") setDate(new Date());
+      if (key === "t") goToday();
       else if (key === "d" || key === "1") setView("day");
       else if (key === "w" || key === "2") setView("week");
       else if (key === "m" || key === "3") setView("month");
@@ -835,7 +852,7 @@ export function CalendarApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialog, newEventHere, setDate, step, store]);
+  }, [dialog, goToday, newEventHere, setDate, step, store]);
 
   if (!store.ready) {
     return (
@@ -887,7 +904,7 @@ export function CalendarApp() {
           onQuery={setQuery}
           onPrev={() => step(-1)}
           onNext={() => step(1)}
-          onToday={() => setDate(new Date())}
+          onToday={goToday}
           onView={setView}
           onOpenEvent={(event) => {
             setDate(new Date(event.start));

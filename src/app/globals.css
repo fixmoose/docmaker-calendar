@@ -165,6 +165,19 @@ button {
 }
 
 /*
+ * Already happened — see lib/past.ts. Faded far enough to tell apart from
+ * what is still ahead at a glance, and brought most of the way back under
+ * the pointer, so an old event can still be read without squinting.
+ */
+.cc-past {
+  opacity: 0.55;
+}
+.cc-past:hover,
+.cc-past:focus-visible {
+  opacity: 0.85;
+}
+
+/*
  * Someone else's private time. Deliberately colourless and hatched so a busy
  * block never reads as one of your own events.
  */

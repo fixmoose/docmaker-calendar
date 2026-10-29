@@ -77,12 +77,14 @@ export function EventPill({
         // Already happened: recede, but stay legible and stay itself. A
         // national day recedes from the start — it is background, not a
         // commitment.
-        spent ? "opacity-55" : isHoliday(event) && "opacity-70",
+        spent ? "cc-past" : isHoliday(event) && "opacity-70",
         event.importance === "urgent" && !masked && "ring-1 ring-[#d1443c]/40",
         masked
           ? "cc-busy border border-dashed font-medium italic"
           : banner
-            ? "cc-solid font-medium"
+            ? // A bar that has been and gone drops its solid fill for a
+              // tint: still its colour, no longer the loudest thing there.
+              clsx(spent ? "cc-tint" : "cc-solid", "font-medium")
             : "font-medium text-ink hover:bg-surface-2",
         continuesLeft ? "rounded-l-none" : "rounded-l-[5px]",
         continuesRight ? "rounded-r-none" : "rounded-r-[5px]",

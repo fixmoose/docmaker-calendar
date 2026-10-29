@@ -18,6 +18,7 @@ import { Paperclip, ShoppingCart, StickyNote } from "lucide-react";
 import { colorVar } from "@/lib/colors";
 import { layoutWeek, monthMatrix, occursOn, weekDays } from "@/lib/date";
 import { isHoliday } from "@/lib/holidays";
+import { isSpent, useNow } from "@/lib/past";
 import { useIsMobile } from "@/lib/media";
 import { dragHasFiles, filesFromDrag } from "@/lib/files";
 import { localDay, useStore } from "@/lib/store";
@@ -135,11 +136,11 @@ export function MonthView({
     return () => ro.disconnect();
   }, [weeks.length]);
 
-  const lanesIn = (holidayLines: number) =>
-    Math.max(
-      1,
-      Math.floor((rowHeight - HEADER_H - 4 - holidayLines * HOLIDAY_H) / LANE_H),
-    );
+  /** Pixels a cell has for pills, above the lines along its floor. */
+  const roomFor = (floorLines: number) =>
+    rowHeight - HEADER_H - 4 - floorLines * HOLIDAY_H;
+  const lanesIn = (floorLines: number) =>
+    Math.max(1, Math.floor(roomFor(floorLines) / LANE_H));
 
   /*
    * A phone's day cell is a third the width, and the same wall there would
@@ -271,10 +272,24 @@ export function MonthView({
 
       <div ref={gridRef} className="flex min-h-0 flex-1 flex-col">
         {weeks.map((days, weekIndex) => {
-          const { segments } = layoutWeek(plain, days);
           const onDay = days.map((day) => holidays.filter((h) => occursOn(h, day)));
           // The whole row gives up the same floor space, so its lanes stay level.
-          const maxLanes = lanesIn(Math.max(...onDay.map((list) => list.length)));
+          let floorLines = Math.max(...onDay.map((list) => list.length));
+          let maxLanes = lanesIn(floorLines);
+          let { segments, bannerFrom } = layoutWeek(plain, days, maxLanes);
+          /*
+           * The all-day bars sit on the floor of the cell, so a "+N more"
+           * line would land on top of them: when anything is left over, the
+           * row gives up a line for it and lays out again.
+           */
+          if (segments.some((s) => s.lane >= maxLanes)) {
+            floorLines += 1;
+            maxLanes = lanesIn(floorLines);
+            ({ segments, bannerFrom } = layoutWeek(plain, days, maxLanes));
+          }
+          // What is left between the last lane and the floor goes above the
+          // bars, so they sit on it rather than hang short of it.
+          const slack = Math.max(0, roomFor(floorLines) - maxLanes * LANE_H);
           const shown = segments.filter((s) => s.lane < maxLanes);
           const hidden = segments.filter((s) => s.lane >= maxLanes);
 
@@ -511,7 +526,7 @@ export function MonthView({
                     style={{
                       left: `calc(${(from / 7) * 100}% + ${clipStart}px)`,
                       width: `calc(${((to - from) / 7) * 100}% - ${clipStart + clipEnd}px)`,
-                      top: seg.lane * LANE_H,
+                      top: seg.lane * LANE_H + (seg.lane >= bannerFrom ? slack : 0),
                       opacity: drag?.id === seg.event.id ? 0.45 : 1,
                     }}
                   >
@@ -594,6 +609,7 @@ function DayMarks({
 
 function MonthDots({ events, day }: { events: CalendarEvent[]; day: Date }) {
   const { calendarById } = useStore();
+  const now = useNow();
   const onDay = events.filter((e) => occursOn(e, day));
   if (!onDay.length) return null;
 
@@ -606,6 +622,7 @@ function MonthDots({ events, day }: { events: CalendarEvent[]; day: Date }) {
           className={clsx(
             "h-[7px] w-[7px] shrink-0 rounded-full",
             event.masked ? "bg-ink-faint/50" : "cc-dot",
+            isSpent(event, now) && "cc-past",
           )}
         />
       ))}

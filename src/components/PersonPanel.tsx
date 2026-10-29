@@ -33,7 +33,7 @@ function ItemRow({
       style={colorVar(color)}
       className={clsx(
         "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition hover:bg-surface-2",
-        past && "opacity-55",
+        past && "cc-past",
       )}
     >
       <span className="cc-dot h-2.5 w-2.5 shrink-0 rounded-full" />

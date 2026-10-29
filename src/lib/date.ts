@@ -95,11 +95,20 @@ export interface Segment {
 }
 
 /**
- * Places a week's events into lanes: banners first (longest first) so they
- * form continuous bars across the row, then timed events in start order.
- * Returns the segments plus how many lanes were needed.
+ * Places a week's events into lanes: banners first (earliest first, the
+ * longer of two that start together above) so they form continuous bars
+ * across the row, then timed events in start order.
+ *
+ * Given a `floor` — the lanes the row has room for — the banners settle to
+ * the bottom of it as one block, earliest at the top of the block, and the
+ * timed events fill down from the top. A bar running across the week then
+ * does not take the first line of every day it touches. Without one they
+ * start at the top, which is what a strip of nothing but banners wants.
+ *
+ * Returns the segments, how many lanes were needed, and the lane the banner
+ * block starts at.
  */
-export function layoutWeek(events: CalendarEvent[], days: Date[]) {
+export function layoutWeek(events: CalendarEvent[], days: Date[], floor?: number) {
   const rowStart = startOfDay(days[0]);
   const rowEnd = endOfDay(days[days.length - 1]);
 
@@ -114,29 +123,38 @@ export function layoutWeek(events: CalendarEvent[], days: Date[]) {
     if (ab !== bb) return ab ? -1 : 1;
     const as = new Date(a.start).getTime();
     const bs = new Date(b.start).getTime();
+    if (as !== bs) return as - bs;
     if (ab && bb) {
       const aLen = new Date(a.end).getTime() - as;
       const bLen = new Date(b.end).getTime() - bs;
       if (aLen !== bLen) return bLen - aLen;
     }
-    if (as !== bs) return as - bs;
     return a.title.localeCompare(b.title);
   });
 
-  const lanes: boolean[][] = [];
-  const segments: Segment[] = [];
-
-  for (const event of ranked) {
+  const placed = ranked.flatMap((event) => {
     const { start, end } = eventRange(event);
     let col = days.findIndex((d) => isSameDay(d, start));
     if (col < 0) col = start < rowStart ? 0 : -1;
-    if (col < 0) continue;
+    if (col < 0) return [];
 
     let last = days.findIndex((d) => isSameDay(d, end));
     if (last < 0) last = end > rowEnd ? 6 : col;
     const span = Math.max(1, last - col + 1);
 
-    let lane = 0;
+    return [
+      {
+        event,
+        col,
+        span,
+        continuesLeft: start < rowStart,
+        continuesRight: end > rowEnd,
+      },
+    ];
+  });
+
+  const pack = (lanes: boolean[][], col: number, span: number, from = 0) => {
+    let lane = from;
     for (;;) {
       lanes[lane] ??= new Array(7).fill(false);
       const free = lanes[lane].slice(col, col + span).every((taken) => !taken);
@@ -144,18 +162,29 @@ export function layoutWeek(events: CalendarEvent[], days: Date[]) {
       lane += 1;
     }
     for (let i = col; i < col + span; i++) lanes[lane][i] = true;
+    return lane;
+  };
 
-    segments.push({
-      event,
-      col,
-      span,
-      lane,
-      continuesLeft: start < rowStart,
-      continuesRight: end > rowEnd,
-    });
+  // The banners are packed among themselves first, to learn how tall their
+  // block is, and then the block is set down where it belongs.
+  const bannerLanes: boolean[][] = [];
+  const inBlock = new Map<CalendarEvent, number>();
+  for (const p of placed) {
+    if (isBanner(p.event)) inBlock.set(p.event, pack(bannerLanes, p.col, p.span));
+  }
+  const bannerFrom =
+    floor === undefined ? 0 : Math.max(0, floor - bannerLanes.length);
+
+  const lanes: boolean[][] = [];
+  const segments: Segment[] = [];
+  for (const p of placed) {
+    const block = inBlock.get(p.event);
+    const lane =
+      block === undefined ? pack(lanes, p.col, p.span) : pack(lanes, p.col, p.span, bannerFrom + block);
+    segments.push({ ...p, lane });
   }
 
-  return { segments, laneCount: lanes.length };
+  return { segments, laneCount: lanes.length, bannerFrom };
 }
 
 /* ------------------------------------------------------------------ *

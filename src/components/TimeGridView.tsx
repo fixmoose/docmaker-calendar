@@ -135,7 +135,7 @@ function Block({
       className={clsx(
         "group absolute overflow-hidden rounded-[7px] border px-2 py-1 text-[12px] transition select-none",
         // Already happened: recede, without becoming a different kind of thing.
-        spent && "opacity-55",
+        spent && "cc-past",
         masked
           ? "cc-busy border-dashed"
           : "cc-tint cc-tint-border cc-rail hover:z-20 hover:shadow-[var(--shadow-sm)]",
