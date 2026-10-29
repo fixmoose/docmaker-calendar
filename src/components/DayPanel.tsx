@@ -1,9 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { format, isToday } from "date-fns";
+import { addDays, format, isToday } from "date-fns";
 import { AlertTriangle, CalendarPlus, EyeOff, MapPin } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { colorVar } from "@/lib/colors";
 import { occursOn, rangeLabel } from "@/lib/date";
 import { useIsSpent } from "@/lib/past";
@@ -152,8 +152,40 @@ export function DayPanel({
   const mine = items.filter((e) => !e.masked);
   const urgent = mine.filter((e) => e.importance === "urgent").length;
 
+  /*
+   * On a phone the day is turned like a page: a swipe to the left brings the
+   * next day in from the right, a swipe to the right goes back. Only a clearly
+   * sideways movement counts, so scrolling the list never turns it.
+   */
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  // Which way the last swipe went, and to which day — reaching a day any
+  // other way should not replay it.
+  const [came, setCame] = useState<{ to: string; direction: 1 | -1 } | null>(null);
+  const direction = came?.to === date.toDateString() ? came.direction : 0;
+  const swipe = mobile
+    ? {
+        onTouchStart: (e: React.TouchEvent) => {
+          const t = e.touches[0];
+          touch.current = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+        },
+        onTouchEnd: (e: React.TouchEvent) => {
+          const from = touch.current;
+          touch.current = null;
+          if (!from) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - from.x;
+          const dy = t.clientY - from.y;
+          if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          const next = addDays(date, dx < 0 ? 1 : -1);
+          setCame({ to: next.toDateString(), direction: dx < 0 ? 1 : -1 });
+          handlers.onNavigate(next, "day");
+        },
+      }
+    : {};
+
   return (
     <aside
+      {...swipe}
       className={clsx(
         "flex flex-col bg-surface",
         mobile ? "min-h-0 flex-1" : "w-[340px] shrink-0 border-l border-line",
@@ -185,8 +217,11 @@ export function DayPanel({
       </div>
 
       <div
+        key={mobile ? date.toDateString() : undefined}
         className={clsx(
           "cc-scroll min-h-0 flex-1 overflow-y-auto",
+          direction === 1 && "cc-slide-next",
+          direction === -1 && "cc-slide-prev",
           mobile ? "space-y-2.5 p-3 pb-24" : "space-y-1.5 p-3",
         )}
       >

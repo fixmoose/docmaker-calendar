@@ -245,3 +245,23 @@ button {
 .cc-fade {
   animation: cc-fade 0.14s ease-out;
 }
+
+/* A phone's day list arriving from the side it was swiped in from. */
+@keyframes cc-slide {
+  from {
+    opacity: 0;
+    transform: translateX(var(--from, 0));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.cc-slide-next {
+  --from: 28px;
+  animation: cc-slide 0.18s ease-out;
+}
+.cc-slide-prev {
+  --from: -28px;
+  animation: cc-slide 0.18s ease-out;
+}

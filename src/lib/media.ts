@@ -18,5 +18,11 @@ export function useMediaQuery(query: string) {
   );
 }
 
+const MOBILE = "(max-width: 820px)";
+
 /** Phones and small tablets held upright. */
-export const useIsMobile = () => useMediaQuery("(max-width: 820px)");
+export const useIsMobile = () => useMediaQuery(MOBILE);
+
+/** The same question asked once, for a starting value — never on the server. */
+export const isMobileNow = () =>
+  typeof window !== "undefined" && window.matchMedia(MOBILE).matches;

@@ -425,7 +425,7 @@ export function Sidebar({
         </Button>
       </div>
 
-      <div className="cc-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <div className="cc-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-16">
         {/*
          * Only while something is being shown on its own. Sitting there
          * permanently, "Everything" named the state you were already in and

@@ -23,6 +23,8 @@ import {
   EyeOff,
   Flag,
   Lock,
+  Maximize2,
+  Minimize2,
   Palette,
   Pencil,
   Share2,
@@ -37,7 +39,8 @@ import { weekDays } from "@/lib/date";
 import { uploadAttachment } from "@/lib/db";
 import { holidayEvents, isHoliday } from "@/lib/holidays";
 import { MAX_FILE_BYTES, formatBytes, titleFromFileName } from "@/lib/files";
-import { useIsMobile } from "@/lib/media";
+import { toggleFullscreen, useFullscreen } from "@/lib/fullscreen";
+import { isMobileNow, useIsMobile } from "@/lib/media";
 import { useSettings } from "@/lib/settings";
 import { localDay, useStore } from "@/lib/store";
 import {
@@ -52,6 +55,7 @@ import { AgendaView } from "./AgendaView";
 import { CalendarDialog } from "./CalendarDialog";
 import { ContextMenu, type MenuItem, type MenuState } from "./ContextMenu";
 import { DayPanel } from "./DayPanel";
+import { DayPickerSheet } from "./DayPickerSheet";
 import { EventDialog } from "./EventDialog";
 import { FocusBar } from "./FocusBar";
 import { GroupDialog } from "./GroupDialog";
@@ -97,8 +101,13 @@ export function CalendarApp() {
   const store = useStore();
   const [date, setDate] = useState(() => readUrl().date);
   const settings = useSettings();
+  /*
+   * A phone opens on the day's list, whatever the desktop is set to: it is
+   * mostly taken out to see what is on today, and an hour grid opened at
+   * seven in the morning answers that only after scrolling.
+   */
   const [view, setView] = useState<CalendarView>(
-    () => readUrl().view ?? settings.defaultView,
+    () => readUrl().view ?? (isMobileNow() ? "day" : settings.defaultView),
   );
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -115,6 +124,8 @@ export function CalendarApp() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  /** A phone choosing the day for a new event, before the form opens. */
+  const [pickingDay, setPickingDay] = useState(false);
   /** Looking at one group's world, or one calendar, rather than everything. */
   const [focus, setFocus] = useState<
     { kind: "group" | "calendar"; id: string } | null
@@ -145,6 +156,7 @@ export function CalendarApp() {
     }
   });
   const tourOpen = isMobile && !tourDone;
+  const fullscreen = useFullscreen();
   /** The slot a plain left click picked — what "New event" then uses. */
   const [slot, setSlot] = useState<{ start: string; end: string; allDay: boolean } | null>(
     null,
@@ -839,6 +851,7 @@ export function CalendarApp() {
       else if (key === "m" || key === "3") setView("month");
       else if (key === "a" || key === "4") setView("agenda");
       else if (key === "5") setNotesOpen((v) => !v);
+      else if (key === "f") toggleFullscreen();
       else if (key === "n" || key === "c") newEventHere();
       else if (key === "arrowleft" || key === "k") step(-1);
       else if (key === "arrowright" || key === "j") step(1);
@@ -965,7 +978,7 @@ export function CalendarApp() {
         {isMobile && (
           <button
             type="button"
-            onClick={newEventHere}
+            onClick={() => setPickingDay(true)}
             aria-label="New event"
             data-tour="create"
             className="fixed right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[var(--shadow-lg)] transition active:scale-95"
@@ -974,7 +987,38 @@ export function CalendarApp() {
             <Plus size={26} />
           </button>
         )}
+
+        {/*
+         * The corner opposite the phone's new-event button, and the same
+         * button both ways: it says which way it will go.
+         */}
+        {fullscreen.supported && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={fullscreen.active ? "Exit full screen" : "Full screen"}
+            title={fullscreen.active ? "Exit full screen (F)" : "Full screen (F)"}
+            className="fixed left-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink-muted shadow-[var(--shadow-md)] transition hover:text-ink active:scale-95"
+            style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            {fullscreen.active ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        )}
       </main>
+
+      {pickingDay && (
+        <DayPickerSheet
+          events={events}
+          onClose={() => setPickingDay(false)}
+          onPick={(day) => {
+            setPickingDay(false);
+            // Land on that day too, so what was just added is there after.
+            setDate(day);
+            const start = addHours(startOfDay(day), 9);
+            openEventDialog(start, addHours(start, 1), false);
+          }}
+        />
+      )}
 
       {menu && <ContextMenu state={menu} onClose={() => setMenu(null)} />}
 
